@@ -20,7 +20,7 @@ class AboutScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final AppColors colors = context.colors;
     final AsyncValue<List<HadithCollection>> collections =
-        ref.watch(collectionsProvider);
+        ref.watch(browsableCollectionsProvider);
 
     return AppPage(
       title: 'Hadith sources',

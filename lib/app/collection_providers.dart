@@ -13,6 +13,28 @@ final FutureProvider<List<HadithCollection>> collectionsProvider =
   (Ref ref) => ref.watch(hadithRepositoryProvider).collections(),
 );
 
+/// The collections offered to the reader for browsing and selection.
+///
+/// The development fixture is placeholder text rather than hadith, so it is
+/// hidden as soon as any verified collection is readable. It stays listed while
+/// it is the only readable content: a fresh checkout ships the fixture alone,
+/// and hiding it there would leave nothing to read until a dataset is imported.
+final FutureProvider<List<HadithCollection>> browsableCollectionsProvider =
+    FutureProvider<List<HadithCollection>>((Ref ref) async {
+  final List<HadithCollection> collections =
+      await ref.watch(collectionsProvider.future);
+
+  final bool hasVerifiedContent = collections.any(
+    (HadithCollection collection) =>
+        collection.isReadable && !collection.isFixture,
+  );
+  if (!hasVerifiedContent) return collections;
+
+  return collections
+      .where((HadithCollection collection) => !collection.isFixture)
+      .toList();
+});
+
 /// A collection paired with the reader's progress in it.
 @immutable
 class LibraryEntry {
@@ -28,7 +50,7 @@ class LibraryEntry {
 final FutureProvider<List<LibraryEntry>> libraryProvider =
     FutureProvider<List<LibraryEntry>>((Ref ref) async {
   final List<HadithCollection> collections =
-      await ref.watch(collectionsProvider.future);
+      await ref.watch(browsableCollectionsProvider.future);
   final ProgressRepository progressRepository =
       ref.watch(progressRepositoryProvider);
 

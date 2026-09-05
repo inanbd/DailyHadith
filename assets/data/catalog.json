@@ -27,8 +27,11 @@
       "totalHadith": 1896,
       "verification": "verified",
       "source": {
-        "name": "Not yet imported",
-        "licence": "Depends on the dataset you import"
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "licence": "No licence declared by the dataset — review before distributing",
+        "retrievedAt": "2026-09-05T08:23:19.762300Z"
       }
     },
     {
@@ -42,8 +45,11 @@
       "totalHadith": 42,
       "verification": "verified",
       "source": {
-        "name": "Not yet imported",
-        "licence": "Depends on the dataset you import"
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "licence": "No licence declared by the dataset — review before distributing",
+        "retrievedAt": "2026-09-05T08:23:20.801036Z"
       }
     },
     {
@@ -54,11 +60,14 @@
       "compiler": "Imam al-Bukhari",
       "compilerArabic": "الإمام البخاري",
       "description": "Imam al-Bukhari's collection on manners and social conduct — parents, neighbours, speech and hospitality.",
-      "totalHadith": 1322,
+      "totalHadith": 1326,
       "verification": "verified",
       "source": {
-        "name": "Not yet imported",
-        "licence": "Depends on the dataset you import"
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "licence": "No licence declared by the dataset — review before distributing",
+        "retrievedAt": "2026-09-05T08:23:21.881013Z"
       }
     },
     {
@@ -69,11 +78,14 @@
       "compiler": "Imam at-Tirmidhi",
       "compilerArabic": "الإمام الترمذي",
       "description": "Narrations describing the appearance, character and daily habits of the Prophet ﷺ, gathered by Imam at-Tirmidhi.",
-      "totalHadith": 397,
+      "totalHadith": 402,
       "verification": "verified",
       "source": {
-        "name": "Not yet imported",
-        "licence": "Depends on the dataset you import"
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "licence": "No licence declared by the dataset — review before distributing",
+        "retrievedAt": "2026-09-05T08:23:22.947326Z"
       }
     },
     {
@@ -84,11 +96,14 @@
       "compiler": "Ibn Hajar al-Asqalani",
       "compilerArabic": "ابن حجر العسقلاني",
       "description": "Hadith of legal rulings arranged by chapter, with the compiler's notes on their grading and sources.",
-      "totalHadith": 1568,
+      "totalHadith": 1767,
       "verification": "verified",
       "source": {
-        "name": "Not yet imported",
-        "licence": "Depends on the dataset you import"
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "licence": "No licence declared by the dataset — review before distributing",
+        "retrievedAt": "2026-09-05T08:23:24.016177Z"
       }
     },
     {
@@ -99,11 +114,14 @@
       "compiler": "Imam al-Bukhari",
       "compilerArabic": "الإمام البخاري",
       "description": "The best known of the hadith collections, compiled by Muhammad ibn Isma'il al-Bukhari (d. 256 AH). A long read — measured in years at one a day.",
-      "totalHadith": 7563,
+      "totalHadith": 7277,
       "verification": "verified",
       "source": {
-        "name": "Not yet imported",
-        "licence": "Depends on the dataset you import"
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "licence": "No licence declared by the dataset — review before distributing",
+        "retrievedAt": "2026-09-05T08:23:25.197466Z"
       }
     },
     {
@@ -114,11 +132,14 @@
       "compiler": "Imam Muslim ibn al-Hajjaj",
       "compilerArabic": "الإمام مسلم بن الحجاج",
       "description": "Compiled by Muslim ibn al-Hajjaj (d. 261 AH) and arranged by topic, noted for the care taken over its chains of narration.",
-      "totalHadith": 7470,
+      "totalHadith": 7459,
       "verification": "verified",
       "source": {
-        "name": "Not yet imported",
-        "licence": "Depends on the dataset you import"
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "licence": "No licence declared by the dataset — review before distributing",
+        "retrievedAt": "2026-09-05T08:23:26.478897Z"
       }
     }
   ]

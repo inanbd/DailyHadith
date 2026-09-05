@@ -47,7 +47,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final AsyncValue<List<HadithCollection>> collections =
-        ref.watch(collectionsProvider);
+        ref.watch(browsableCollectionsProvider);
 
     return AppPage(
       title: _title,

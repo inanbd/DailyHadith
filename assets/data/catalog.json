@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "notice": "Bibliographic metadata for the collections the app can read. A collection becomes readable when a matching file exists at assets/data/collections/<slug>.json. See DATA_SOURCES.md for how to import a verified dataset.",
+  "collections": [
+    {
+      "id": "dev_sample",
+      "slug": "dev_sample",
+      "titleEnglish": "Development Sample",
+      "titleArabic": "",
+      "compiler": "Daily Hadith development fixture",
+      "description": "Placeholder text used to exercise the reading experience during development. This is not hadith content and is not part of any collection.",
+      "totalHadith": 40,
+      "verification": "development_fixture",
+      "source": {
+        "name": "Daily Hadith development fixture",
+        "licence": "Part of this repository"
+      }
+    },
+    {
+      "id": "riyad_as_salihin",
+      "slug": "riyad_as_salihin",
+      "titleEnglish": "Riyad as-Salihin",
+      "titleArabic": "رياض الصالحين",
+      "compiler": "Imam an-Nawawi",
+      "compilerArabic": "الإمام النووي",
+      "description": "A topical collection of hadith on character, worship and everyday conduct, compiled by Imam Yahya ibn Sharaf an-Nawawi (d. 676 AH). Its short chapters and accessible arrangement have made it one of the most widely read hadith books for centuries.",
+      "totalHadith": 1896,
+      "verification": "verified",
+      "source": {
+        "name": "Not yet imported",
+        "licence": "Depends on the dataset you import"
+      }
+    },
+    {
+      "id": "nawawi40",
+      "slug": "nawawi40",
+      "titleEnglish": "Forty Hadith of Imam an-Nawawi",
+      "titleArabic": "الأربعون النووية",
+      "compiler": "Imam an-Nawawi",
+      "compilerArabic": "الإمام النووي",
+      "description": "A short, memorisable selection of hadith that Imam an-Nawawi considered foundations of the religion. A common starting point for a first complete reading.",
+      "totalHadith": 42,
+      "verification": "verified",
+      "source": {
+        "name": "Not yet imported",
+        "licence": "Depends on the dataset you import"
+      }
+    },
+    {
+      "id": "adab_al_mufrad",
+      "slug": "adab_al_mufrad",
+      "titleEnglish": "Al-Adab Al-Mufrad",
+      "titleArabic": "الأدب المفرد",
+      "compiler": "Imam al-Bukhari",
+      "compilerArabic": "الإمام البخاري",
+      "description": "Imam al-Bukhari's collection on manners and social conduct — parents, neighbours, speech and hospitality.",
+      "totalHadith": 1322,
+      "verification": "verified",
+      "source": {
+        "name": "Not yet imported",
+        "licence": "Depends on the dataset you import"
+      }
+    },
+    {
+      "id": "shamail_muhammadiyyah",
+      "slug": "shamail_muhammadiyyah",
+      "titleEnglish": "Ash-Shama'il Al-Muhammadiyyah",
+      "titleArabic": "الشمائل المحمدية",
+      "compiler": "Imam at-Tirmidhi",
+      "compilerArabic": "الإمام الترمذي",
+      "description": "Narrations describing the appearance, character and daily habits of the Prophet ﷺ, gathered by Imam at-Tirmidhi.",
+      "totalHadith": 397,
+      "verification": "verified",
+      "source": {
+        "name": "Not yet imported",
+        "licence": "Depends on the dataset you import"
+      }
+    },
+    {
+      "id": "bulugh_al_maram",
+      "slug": "bulugh_al_maram",
+      "titleEnglish": "Bulugh al-Maram",
+      "titleArabic": "بلوغ المرام",
+      "compiler": "Ibn Hajar al-Asqalani",
+      "compilerArabic": "ابن حجر العسقلاني",
+      "description": "Hadith of legal rulings arranged by chapter, with the compiler's notes on their grading and sources.",
+      "totalHadith": 1568,
+      "verification": "verified",
+      "source": {
+        "name": "Not yet imported",
+        "licence": "Depends on the dataset you import"
+      }
+    },
+    {
+      "id": "bukhari",
+      "slug": "bukhari",
+      "titleEnglish": "Sahih al-Bukhari",
+      "titleArabic": "صحيح البخاري",
+      "compiler": "Imam al-Bukhari",
+      "compilerArabic": "الإمام البخاري",
+      "description": "The best known of the hadith collections, compiled by Muhammad ibn Isma'il al-Bukhari (d. 256 AH). A long read — measured in years at one a day.",
+      "totalHadith": 7563,
+      "verification": "verified",
+      "source": {
+        "name": "Not yet imported",
+        "licence": "Depends on the dataset you import"
+      }
+    },
+    {
+      "id": "muslim",
+      "slug": "muslim",
+      "titleEnglish": "Sahih Muslim",
+      "titleArabic": "صحيح مسلم",
+      "compiler": "Imam Muslim ibn al-Hajjaj",
+      "compilerArabic": "الإمام مسلم بن الحجاج",
+      "description": "Compiled by Muslim ibn al-Hajjaj (d. 261 AH) and arranged by topic, noted for the care taken over its chains of narration.",
+      "totalHadith": 7470,
+      "verification": "verified",
+      "source": {
+        "name": "Not yet imported",
+        "licence": "Depends on the dataset you import"
+      }
+    }
+  ]
+}

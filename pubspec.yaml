@@ -1,0 +1,71 @@
+name: daily_hadith
+description: "Daily Hadith — one authentic Hadith, one gentle reminder, steady progress."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^3.0.0
+
+  # Routing + notification deep links
+  go_router: ^17.0.0
+
+  # Local persistence
+  sqflite: ^2.4.1
+  path: ^1.9.0
+  path_provider: ^2.1.5
+  shared_preferences: ^2.5.2
+
+  # Notifications
+  flutter_local_notifications: ^19.0.0
+  timezone: ^0.10.0
+  flutter_timezone: ^4.1.0
+
+  # Misc
+  intl: ^0.20.2
+  collection: ^1.19.0
+  meta: ^1.16.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  sqflite_common_ffi: ^2.3.4
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    # The collection catalog plus one JSON file per collection. Declaring the
+    # directory means an imported dataset is picked up on the next build with
+    # no code or pubspec change.
+    - assets/data/catalog.json
+    - assets/data/collections/
+
+  fonts:
+    # Variable fonts, both under the SIL Open Font License 1.1.
+    # Licence texts live alongside them in assets/fonts/.
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Variable.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-Variable.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Variable.ttf
+          weight: 700
+    - family: NotoNaskhArabic
+      fonts:
+        - asset: assets/fonts/NotoNaskhArabic-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/NotoNaskhArabic-Variable.ttf
+          weight: 500
+        - asset: assets/fonts/NotoNaskhArabic-Variable.ttf
+          weight: 600

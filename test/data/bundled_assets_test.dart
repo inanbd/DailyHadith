@@ -111,6 +111,38 @@ void main() {
     }
   });
 
+  test('any imported collection is well-formed', () async {
+    // Skips cleanly on a fresh checkout, where only the fixture is present.
+    // Once a dataset has been imported it is held to the same contract: every
+    // entry readable, numbering unique, attribution recorded.
+    final List<HadithCollection> collections = await source.loadCatalog();
+    final Iterable<HadithCollection> imported = collections.where(
+      (HadithCollection collection) => !collection.isFixture,
+    );
+
+    for (final HadithCollection collection in imported) {
+      if (!await source.hasContentFor(collection.id)) continue;
+
+      final List<Hadith> hadith = await source.loadHadith(collection.id);
+      expect(
+        hadith.length,
+        collection.totalHadith,
+        reason: '${collection.id}: catalog total must match the entry count',
+      );
+      expect(
+        hadith.every((Hadith h) => h.hasAnyText),
+        isTrue,
+        reason: '${collection.id}: every entry needs Arabic or English',
+      );
+      expect(
+        hadith.map((Hadith h) => h.hadithNumber).toSet().length,
+        hadith.length,
+        reason: '${collection.id}: published numbers must be unique',
+      );
+      expect(collection.source.url, isNotNull);
+    }
+  });
+
   test('the fixture chapter list matches its entries', () async {
     final List<dynamic> chapters = await source.loadChapters('dev_sample');
     expect(chapters, isNotEmpty);

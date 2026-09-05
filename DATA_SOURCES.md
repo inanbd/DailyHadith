@@ -131,7 +131,116 @@ Notes:
 - `chapters` may be empty. Chapter browsing is not in the MVP UI, but the
   metadata is preserved so it can be added without touching the data layer.
 
-## Importing
+## Recipe: the `hadith-json` dataset
+
+[`AhmedBaset/hadith-json`](https://github.com/AhmedBaset/hadith-json) is the
+best-known open dataset for this purpose: 50,884 hadith across 17 books, Arabic
+and English, scraped from [Sunnah.com](https://sunnah.com/). Seven of its books
+match collections in this app's catalog.
+
+**Read this before shipping it.** The dataset publishes **no LICENSE file**,
+which means it grants no explicit permission to redistribute. Importing it to
+read locally is one thing; putting it inside an app you publish is
+redistribution, and so is committing it to a public repository. Check
+Sunnah.com's terms and the dataset's, and satisfy yourself that you may
+distribute the text, before releasing a build that contains it. The importer
+records `"No licence declared by the dataset — review before distributing"` in
+the attribution so this does not get quietly forgotten.
+
+### One command
+
+```bash
+./tool/fetch_hadith_json.sh riyad_as_salihin   # or: all
+```
+
+That clones the dataset at its pinned tag into `.dart_tool/hadith-json`
+(git-ignored, cached between runs) and imports it. Available collections:
+
+| Collection | Entries | Dataset file |
+|---|--:|---|
+| `riyad_as_salihin` | 1,896 | `other_books/riyad_assalihin.json` |
+| `nawawi40` | 42 | `forties/nawawi40.json` |
+| `adab_al_mufrad` | 1,326 | `other_books/aladab_almufrad.json` |
+| `shamail_muhammadiyyah` | 402 | `other_books/shamail_muhammadiyah.json` |
+| `bulugh_al_maram` | 1,767 | `other_books/bulugh_almaram.json` |
+| `bukhari` | 7,277 | `the_9_books/bukhari.json` |
+| `muslim` | 7,459 | `the_9_books/muslim.json` |
+
+Then:
+
+```bash
+flutter test test/data/bundled_assets_test.dart   # structure and labelling
+flutter run
+```
+
+### The same thing by hand
+
+The script is a thin wrapper. The underlying call, for Riyad as-Salihin:
+
+```bash
+dart run tool/import_hadith.dart \
+  --input .dart_tool/hadith-json/db/by_book/other_books/riyad_assalihin.json \
+  --collection riyad_as_salihin \
+  --source-name "hadith-json (AhmedBaset), scraped from Sunnah.com" \
+  --source-url "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0" \
+  --translator "Sunnah.com translation" \
+  --licence "No licence declared by the dataset — review before distributing" \
+  --array-path hadiths \
+  --chapters-path chapters \
+  --reference-template "Riyad as-Salihin {number}" \
+  --map number=idInBook \
+  --map arabic=arabic \
+  --map english=english.text \
+  --map narrator=english.narrator \
+  --map chapter=chapterId \
+  --map book=bookId \
+  --chapter-map id=id \
+  --chapter-map english=english \
+  --chapter-map arabic=arabic \
+  --chapter-map book=bookId
+```
+
+Two flags earn their keep on this dataset:
+
+- `--chapters-path chapters` — the dataset stores chapter titles once in a
+  top-level array and references them from each hadith by `chapterId`. This
+  joins them, so the reader sees "Chapter: The Book of Good Manners" rather
+  than nothing.
+- `--reference-template` — the dataset carries no citation string. The template
+  builds one from the collection's own name and the number the source
+  published. It assembles a *reference*, never text.
+
+Grading is not a separate field in this dataset; where a grading exists it is
+part of the Arabic text (for example `(متفق عليه)`). The app therefore shows no
+separate grading line for these imports, which is correct — it never infers one.
+
+### Entry counts differ from the catalog's placeholders
+
+The catalog shipped with rounded, edition-dependent totals. The dataset's real
+counts differ for several books — Bulugh al-Maram is 1,767 here, not 1,568;
+Sahih al-Bukhari is 7,277, not 7,563. **This is expected**: numbering varies
+between printed editions and between sites. The importer overwrites
+`totalHadith` with the count it actually imported, and at runtime the app trusts
+the number of entries in local storage over anything the catalog claims, so
+progress can never be measured against a total it does not have.
+
+### If you decide to commit the imported data
+
+Imported files land in `assets/data/collections/` and are **not** git-ignored,
+so they are yours to commit once you are satisfied about the licence. Riyad
+as-Salihin alone is about 2.6 MB. If you would rather keep them out of version
+control and have each developer run the script, add this to `.gitignore`:
+
+```gitignore
+# Imported hadith datasets — fetched with tool/fetch_hadith_json.sh
+/assets/data/collections/*.json
+!/assets/data/collections/dev_sample.json
+```
+
+Either way the app builds: without an import it falls back to the development
+fixture and shows a "Dataset not installed" state for everything else.
+
+## Importing by hand (any dataset)
 
 ```bash
 dart run tool/import_hadith.dart \

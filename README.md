@@ -94,9 +94,23 @@ the app is fully usable before any dataset is imported.
 
 ## Importing a verified dataset
 
-`tool/import_hadith.dart` converts a dataset into the app's asset format and
-records its attribution. It copies text verbatim and skips entries that have no
-text rather than filling gaps.
+The quickest route is the open [`hadith-json`](https://github.com/AhmedBaset/hadith-json)
+dataset (Arabic + English, scraped from Sunnah.com), which covers seven of the
+collections in this app's catalog:
+
+```bash
+./tool/fetch_hadith_json.sh riyad_as_salihin   # or: all
+flutter run
+```
+
+That dataset publishes **no licence**, so importing it for local use is fine but
+shipping it in a published app is redistribution — read the note in
+[DATA_SOURCES.md](DATA_SOURCES.md#recipe-the-hadith-json-dataset) before you
+release a build containing it.
+
+For any other dataset, `tool/import_hadith.dart` converts it into the app's
+asset format and records its attribution. It copies text verbatim and skips
+entries that have no text rather than filling gaps.
 
 ```bash
 dart run tool/import_hadith.dart \
@@ -115,8 +129,9 @@ dart run tool/import_hadith.dart \
 ```
 
 `--map field=path` points an app field at a key in your input; paths may be
-nested with dots. Run `dart run tool/import_hadith.dart --help` for the full
-list.
+nested with dots. `--chapters-path` joins a separate chapter list onto each
+hadith, and `--reference-template` builds a citation for datasets that carry
+none. Run `dart run tool/import_hadith.dart --help` for the full list.
 
 The tool writes `assets/data/collections/<slug>.json` and updates
 `assets/data/catalog.json` with the real entry count and source. Because the

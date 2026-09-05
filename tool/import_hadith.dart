@@ -46,6 +46,17 @@ const Map<String, String> _defaultMapping = <String, String>{
   'book': 'bookNumber',
 };
 
+/// Fields of a separate chapter list, and the input keys they default to.
+///
+/// Many datasets keep chapter titles in one array and reference them from each
+/// hadith by id, rather than repeating the title on every entry.
+const Map<String, String> _defaultChapterMapping = <String, String>{
+  'id': 'chapterNumber',
+  'english': 'titleEnglish',
+  'arabic': 'titleArabic',
+  'book': 'bookNumber',
+};
+
 Future<int> main(List<String> arguments) async {
   final _Options options;
   try {
@@ -77,6 +88,14 @@ Future<int> main(List<String> arguments) async {
     return 65;
   }
 
+  // A separate chapter list, keyed by chapter id, joined onto each hadith below.
+  final Map<int, _Chapter> chapterIndex = _readChapterIndex(decoded, options);
+  if (options.chaptersPath != null && chapterIndex.isEmpty) {
+    stderr.writeln(
+      'Warning: --chapters-path "${options.chaptersPath}" matched no chapters.',
+    );
+  }
+
   final List<Map<String, Object?>> hadith = <Map<String, Object?>>[];
   int skipped = 0;
   int ordinal = 0;
@@ -99,18 +118,28 @@ Future<int> main(List<String> arguments) async {
       continue;
     }
 
+    final String number =
+        _readString(entry, options.mapping['number']) ?? '$ordinal';
+    final int? chapterNumber = _readInt(entry, options.mapping['chapter']);
+    final int? bookNumber = _readInt(entry, options.mapping['book']);
+    final _Chapter? chapter = chapterIndex[chapterNumber];
+
     hadith.add(<String, Object?>{
-      'hadithNumber':
-          _readString(entry, options.mapping['number']) ?? '$ordinal',
-      'bookNumber': _readInt(entry, options.mapping['book']),
-      'chapterNumber': _readInt(entry, options.mapping['chapter']),
-      'chapterEnglish': _readString(entry, options.mapping['chapterEnglish']),
-      'chapterArabic': _readString(entry, options.mapping['chapterArabic']),
+      'hadithNumber': number,
+      'bookNumber': bookNumber ?? chapter?.bookNumber,
+      'chapterNumber': chapterNumber,
+      // Per-entry titles win; the joined chapter list fills the gaps.
+      'chapterEnglish':
+          _readString(entry, options.mapping['chapterEnglish']) ??
+              chapter?.titleEnglish,
+      'chapterArabic': _readString(entry, options.mapping['chapterArabic']) ??
+          chapter?.titleArabic,
       'arabic': arabic,
       'english': english,
       'narrator': _readString(entry, options.mapping['narrator']),
       'grade': _readString(entry, options.mapping['grade']),
-      'reference': _readString(entry, options.mapping['reference']),
+      'reference': _readString(entry, options.mapping['reference']) ??
+          _buildReference(options.referenceTemplate, number, chapterNumber),
     }..removeWhere((String key, Object? value) => value == null));
   }
 
@@ -203,6 +232,48 @@ Future<String> _updateCatalog(
   return (entry['slug'] as String?) ?? options.collectionId;
 }
 
+/// One entry of a dataset's separate chapter list.
+class _Chapter {
+  const _Chapter({this.titleEnglish, this.titleArabic, this.bookNumber});
+
+  final String? titleEnglish;
+  final String? titleArabic;
+  final int? bookNumber;
+}
+
+/// Reads the dataset's chapter list into a lookup keyed by chapter id.
+///
+/// Returns an empty map when no --chapters-path was given, in which case
+/// chapter titles come from the hadith entries themselves.
+Map<int, _Chapter> _readChapterIndex(Object? document, _Options options) {
+  final String? path = options.chaptersPath;
+  if (path == null) return const <int, _Chapter>{};
+
+  final Map<int, _Chapter> index = <int, _Chapter>{};
+  for (final Object? entry in _locateArray(document, path)) {
+    if (entry is! Map<String, Object?>) continue;
+    final int? id = _readInt(entry, options.chapterMapping['id']);
+    if (id == null) continue;
+    index[id] = _Chapter(
+      titleEnglish: _readString(entry, options.chapterMapping['english']),
+      titleArabic: _readString(entry, options.chapterMapping['arabic']),
+      bookNumber: _readInt(entry, options.chapterMapping['book']),
+    );
+  }
+  return index;
+}
+
+/// Builds a citation like "Riyad as-Salihin 24" from a template.
+///
+/// This is a reference, not hadith text: it is assembled only from the
+/// collection's own name and the number the source published.
+String? _buildReference(String? template, String number, int? chapter) {
+  if (template == null || template.isEmpty) return null;
+  return template
+      .replaceAll('{number}', number)
+      .replaceAll('{chapter}', chapter?.toString() ?? '');
+}
+
 /// Builds the chapter list from whatever chapter metadata the entries carry.
 List<Map<String, Object?>> _deriveChapters(List<Map<String, Object?>> hadith) {
   final Map<int, Map<String, Object?>> chapters = <int, Map<String, Object?>>{};
@@ -290,11 +361,14 @@ class _Options {
     required this.collectionId,
     required this.sourceName,
     required this.mapping,
+    required this.chapterMapping,
     required this.verification,
     this.sourceUrl,
     this.translator,
     this.licence,
     this.arrayPath,
+    this.chaptersPath,
+    this.referenceTemplate,
     this.showHelp = false,
   });
 
@@ -305,6 +379,7 @@ class _Options {
         collectionId: '',
         sourceName: '',
         mapping: _defaultMapping,
+        chapterMapping: _defaultChapterMapping,
         verification: 'verified',
         showHelp: true,
       );
@@ -312,6 +387,8 @@ class _Options {
 
     final Map<String, String> values = <String, String>{};
     final Map<String, String> mapping = Map<String, String>.of(_defaultMapping);
+    final Map<String, String> chapterMapping =
+        Map<String, String>.of(_defaultChapterMapping);
     bool fixture = false;
 
     for (int i = 0; i < arguments.length; i++) {
@@ -329,19 +406,24 @@ class _Options {
       }
       final String value = arguments[++i];
 
-      if (name == 'map') {
+      if (name == 'map' || name == 'chapter-map') {
+        final bool isChapter = name == 'chapter-map';
+        final Map<String, String> target = isChapter ? chapterMapping : mapping;
+        final Map<String, String> known =
+            isChapter ? _defaultChapterMapping : _defaultMapping;
+
         final int split = value.indexOf('=');
         if (split <= 0) {
-          throw _UsageError('--map expects field=path, got "$value".');
+          throw _UsageError('--$name expects field=path, got "$value".');
         }
         final String field = value.substring(0, split);
-        if (!_defaultMapping.containsKey(field)) {
+        if (!known.containsKey(field)) {
           throw _UsageError(
-            'Unknown field "$field". Known fields: '
-            '${_defaultMapping.keys.join(', ')}.',
+            'Unknown --$name field "$field". Known fields: '
+            '${known.keys.join(', ')}.',
           );
         }
-        mapping[field] = value.substring(split + 1);
+        target[field] = value.substring(split + 1);
         continue;
       }
       values[name] = value;
@@ -361,7 +443,10 @@ class _Options {
       translator: values['translator'],
       licence: values['licence'],
       arrayPath: values['array-path'],
+      chaptersPath: values['chapters-path'],
+      referenceTemplate: values['reference-template'],
       mapping: mapping,
+      chapterMapping: chapterMapping,
       verification: fixture ? 'development_fixture' : 'verified',
     );
   }
@@ -373,7 +458,15 @@ class _Options {
   final String? translator;
   final String? licence;
   final String? arrayPath;
+
+  /// Dot path to a separate chapter list, when the dataset keeps one.
+  final String? chaptersPath;
+
+  /// Citation template, e.g. "Riyad as-Salihin {number}".
+  final String? referenceTemplate;
+
   final Map<String, String> mapping;
+  final Map<String, String> chapterMapping;
   final String verification;
   final bool showHelp;
 }
@@ -395,6 +488,15 @@ Optional:
                           is used.
   --map <field>=<path>    Map an app field to an input path. Repeatable.
                           Paths may be nested, e.g. english=english.text.
+  --chapters-path <path>  Dot path to a separate chapter list, for datasets
+                          that store chapter titles once and reference them
+                          from each hadith by id.
+  --chapter-map <f>=<p>   Map a chapter field to an input path. Repeatable.
+  --reference-template <t>
+                          Citation to use when entries carry none, e.g.
+                          "Riyad as-Salihin {number}". Placeholders: {number},
+                          {chapter}. Built only from the collection's own name
+                          and the source's published numbering.
   --fixture               Mark the import as development data rather than
                           verified content.
   -h, --help              Show this message.
@@ -402,6 +504,9 @@ Optional:
 App fields available to --map:
   number, arabic, english, narrator, grade, reference, chapter,
   chapterEnglish, chapterArabic, book
+
+Chapter fields available to --chapter-map:
+  id, english, arabic, book
 
 Text is copied verbatim. Entries with neither Arabic nor English are reported
 and skipped.

@@ -77,7 +77,6 @@ import_one() {
     --source-name "hadith-json (AhmedBaset), scraped from Sunnah.com" \
     --source-url "https://github.com/AhmedBaset/hadith-json/tree/$DATASET_TAG" \
     --translator "Sunnah.com translation" \
-    --licence "No licence declared by the dataset — review before distributing" \
     --array-path hadiths \
     --chapters-path chapters \
     --reference-template "$title {number}" \

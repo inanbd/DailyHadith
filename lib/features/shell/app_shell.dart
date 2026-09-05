@@ -3,7 +3,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/theme/app_colors.dart';
 
-/// The four-tab frame: Today, Library, Progress, Settings.
+/// The five-tab frame: Today, Library, Favourites, Progress, Settings.
+///
+/// Tab order here must match the branch order in the router: the shell
+/// selects branches by index, not by route.
 ///
 /// Each tab keeps its own navigation stack, so opening a collection from the
 /// library and switching away does not lose your place.
@@ -36,6 +39,11 @@ class AppShell extends StatelessWidget {
               icon: Icon(Icons.library_books_outlined),
               selectedIcon: Icon(Icons.library_books),
               label: 'Library',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.favorite_border),
+              selectedIcon: Icon(Icons.favorite),
+              label: 'Favourites',
             ),
             NavigationDestination(
               icon: Icon(Icons.donut_large_outlined),

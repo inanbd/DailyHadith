@@ -35,6 +35,7 @@ class TestHarness {
     required this.clock,
     required this.contentSource,
     required this.scheduler,
+    required this.speech,
     required this.database,
     required this.overrides,
   });
@@ -42,6 +43,7 @@ class TestHarness {
   static Future<TestHarness> create({
     FakeContentSource? contentSource,
     FakeNotificationScheduler? scheduler,
+    FakeSpeechSynthesizer? speech,
     DateTime? now,
     Map<String, Object> initialPreferences = const <String, Object>{},
   }) async {
@@ -62,12 +64,15 @@ class TestHarness {
         contentSource ?? FakeContentSource.single(count: 10);
     final FakeNotificationScheduler fakeScheduler =
         scheduler ?? FakeNotificationScheduler();
+    final FakeSpeechSynthesizer fakeSpeech =
+        speech ?? FakeSpeechSynthesizer();
     final TestClock clock = TestClock(now ?? DateTime(2026, 1, 7, 9, 0));
 
     return TestHarness._(
       clock: clock,
       contentSource: source,
       scheduler: fakeScheduler,
+      speech: fakeSpeech,
       database: database,
       overrides: <Override>[
         sharedPreferencesProvider.overrideWithValue(prefs),
@@ -78,6 +83,7 @@ class TestHarness {
         hadithContentSourceProvider
             .overrideWith((Ref ref) => source as HadithContentSource),
         notificationSchedulerProvider.overrideWithValue(fakeScheduler),
+        speechSynthesizerProvider.overrideWithValue(fakeSpeech),
         clockProvider.overrideWithValue(() => clock.now),
       ],
     );
@@ -86,6 +92,7 @@ class TestHarness {
   final TestClock clock;
   final FakeContentSource contentSource;
   final FakeNotificationScheduler scheduler;
+  final FakeSpeechSynthesizer speech;
   final AppDatabase database;
   final List<Override> overrides;
 

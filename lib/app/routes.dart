@@ -9,6 +9,7 @@ abstract final class Routes {
 
   static const String today = '/today';
   static const String library = '/library';
+  static const String favourites = '/favourites';
   static const String progress = '/progress';
   static const String settings = '/settings';
 
@@ -24,5 +25,11 @@ abstract final class Routes {
   static const String settingsAbout = '$settings/about';
 
   /// Tab order for the bottom navigation bar.
-  static const List<String> tabs = <String>[today, library, progress, settings];
+  static const List<String> tabs = <String>[
+    today,
+    library,
+    favourites,
+    progress,
+    settings,
+  ];
 }

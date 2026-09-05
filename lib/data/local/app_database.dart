@@ -12,13 +12,30 @@ class AppDatabase {
 
 
   static const String fileName = 'daily_hadith.db';
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 2;
 
   static const String collectionsTable = 'collections';
   static const String hadithTable = 'hadith';
   static const String chaptersTable = 'chapters';
   static const String progressTable = 'reading_progress';
   static const String readTable = 'read_hadith';
+  static const String favouritesTable = 'favourite_hadith';
+
+  /// Favourites DDL, run both on a fresh install and by the v1 -> v2 upgrade,
+  /// so the two paths cannot drift apart.
+  static const List<String> _favouritesDdl = <String>[
+    '''
+      CREATE TABLE IF NOT EXISTS $favouritesTable (
+        collection_id TEXT NOT NULL,
+        hadith_id TEXT NOT NULL,
+        ordinal INTEGER NOT NULL,
+        saved_at INTEGER NOT NULL,
+        PRIMARY KEY (collection_id, hadith_id)
+      )
+    ''',
+    'CREATE INDEX IF NOT EXISTS idx_favourite_saved '
+        'ON $favouritesTable (saved_at DESC)',
+  ];
 
   /// Injected in tests to run against an in-memory FFI database.
   final DatabaseFactory? factoryOverride;
@@ -53,8 +70,14 @@ class AppDatabase {
           await _createSchema(db);
         },
         onUpgrade: (Database db, int oldVersion, int newVersion) async {
-          // Only v1 exists today. Future migrations append here; hadith tables
-          // may be dropped and re-imported, progress tables must be preserved.
+          // Migrations are additive. Hadith tables may be dropped and
+          // re-imported; the reader's own data - progress and favourites -
+          // must survive every upgrade.
+          if (oldVersion < 2) {
+            for (final String statement in _favouritesDdl) {
+              await db.execute(statement);
+            }
+          }
         },
       ),
     );
@@ -131,6 +154,10 @@ class AppDatabase {
     batch.execute(
       'CREATE INDEX idx_read_position ON $readTable (collection_id, ordinal)',
     );
+
+    for (final String statement in _favouritesDdl) {
+      batch.execute(statement);
+    }
 
     await batch.commit(noResult: true);
   }

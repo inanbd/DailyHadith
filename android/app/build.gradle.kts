@@ -1,3 +1,15 @@
+import java.io.FileInputStream
+import java.util.Properties
+
+// Release signing credentials live outside version control. Without the file
+// the release build falls back to the debug keys, so `flutter run --release`
+// keeps working on a fresh checkout.
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
+}
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -5,7 +17,7 @@ plugins {
 }
 
 android {
-    namespace = "com.dailyhadith.daily_hadith"
+    namespace = "com.i9tech.dailyhadith"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -18,7 +30,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.dailyhadith.daily_hadith"
+        applicationId = "com.i9tech.dailyhadith"
         // flutter_local_notifications requires API 21+; desugaring covers the
         // java.time usage below that.
         minSdk = maxOf(flutter.minSdkVersion, 23)
@@ -31,11 +43,22 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) }
+            storePassword = keystoreProperties.getProperty("storePassword")
+        }
+    }
+
     buildTypes {
         release {
-            // Replace with a real signing config before publishing; the debug
-            // keys are here only so `flutter run --release` works locally.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../domain/entities/user_preferences.dart';
 import '../features/library/collection_details_screen.dart';
 import '../features/library/library_screen.dart';
+import '../features/favourites/favourites_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/progress/progress_screen.dart';
 import '../features/settings/about_screen.dart';
@@ -110,6 +111,15 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
                     ),
                   ),
                 ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: Routes.favourites,
+                builder: (BuildContext context, GoRouterState state) =>
+                    const FavouritesScreen(),
               ),
             ],
           ),

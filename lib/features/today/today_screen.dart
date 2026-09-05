@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/favourites_providers.dart';
 import '../../app/providers.dart';
 import '../../app/routes.dart';
+import '../../app/speech_providers.dart';
 import '../../core/errors/app_exception.dart';
 import '../../core/utils/formatting.dart';
 import '../../domain/entities/hadith.dart';
@@ -71,6 +73,11 @@ class _TodayBody extends ConsumerWidget {
     }
 
     final UserPreferences preferences = ref.watch(userPreferencesProvider);
+    final String? speakingId = ref.watch(speechControllerProvider);
+    // A device with no English voice gets no play button at all.
+    final bool canSpeak = ref.watch(speechAvailableProvider).value ?? false;
+    final bool isFavourite =
+        ref.watch(isFavouriteProvider(hadith)).value ?? false;
     final ReadingProgress progress = state.progress!;
 
     return Column(
@@ -99,6 +106,15 @@ class _TodayBody extends ConsumerWidget {
             hadith: hadith,
             languageMode: preferences.languageMode,
             textScale: preferences.textSize.scale,
+            onSpeakEnglish: canSpeak
+                ? () => ref
+                    .read(speechControllerProvider.notifier)
+                    .toggle(hadith.id, hadith.englishText ?? '')
+                : null,
+            isSpeaking: speakingId == hadith.id,
+            isFavourite: isFavourite,
+            onToggleFavourite: () =>
+                ref.read(favouritesControllerProvider.notifier).toggle(hadith),
           ),
         ),
         const SizedBox(height: AppSpacing.xxl),

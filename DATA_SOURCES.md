@@ -143,9 +143,7 @@ which means it grants no explicit permission to redistribute. Importing it to
 read locally is one thing; putting it inside an app you publish is
 redistribution, and so is committing it to a public repository. Check
 Sunnah.com's terms and the dataset's, and satisfy yourself that you may
-distribute the text, before releasing a build that contains it. The importer
-records `"No licence declared by the dataset — review before distributing"` in
-the attribution so this does not get quietly forgotten.
+distribute the text, before releasing a build that contains it.
 
 ### One command
 
@@ -184,7 +182,6 @@ dart run tool/import_hadith.dart \
   --source-name "hadith-json (AhmedBaset), scraped from Sunnah.com" \
   --source-url "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0" \
   --translator "Sunnah.com translation" \
-  --licence "No licence declared by the dataset — review before distributing" \
   --array-path hadiths \
   --chapters-path chapters \
   --reference-template "Riyad as-Salihin {number}" \

@@ -1,5 +1,6 @@
 import 'package:daily_hadith/app/routes.dart';
 import 'package:daily_hadith/domain/entities/enums.dart';
+import 'package:daily_hadith/features/favourites/favourites_screen.dart';
 import 'package:daily_hadith/features/library/collection_details_screen.dart';
 import 'package:daily_hadith/features/library/library_screen.dart';
 import 'package:daily_hadith/features/progress/progress_screen.dart';
@@ -57,6 +58,9 @@ void main() {
     expect(find.byType(CollectionDetailsScreen), findsOneWidget);
     expect(find.text('SOURCE'), findsOneWidget);
 
+    await go(tester, harness, Routes.favourites);
+    expect(find.byType(FavouritesScreen), findsOneWidget);
+
     await go(tester, harness, Routes.progress);
     expect(find.byType(ProgressScreen), findsOneWidget);
     expect(find.text('Your Progress'), findsOneWidget);
@@ -90,6 +94,10 @@ void main() {
     await tester.tap(find.text('Library'));
     await harness.settle(tester);
     expect(find.byType(LibraryScreen), findsOneWidget);
+
+    await tester.tap(find.text('Favourites'));
+    await harness.settle(tester);
+    expect(find.byType(FavouritesScreen), findsOneWidget);
 
     await tester.tap(find.text('Progress'));
     await harness.settle(tester);

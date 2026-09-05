@@ -1,4 +1,4 @@
-package com.dailyhadith.daily_hadith
+package com.i9tech.dailyhadith
 
 import io.flutter.embedding.android.FlutterActivity
 

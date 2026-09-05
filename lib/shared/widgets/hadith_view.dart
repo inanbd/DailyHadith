@@ -11,12 +11,20 @@ import '../theme/app_typography.dart';
 /// Arabic is shown first and always laid out right-to-left, regardless of the
 /// app's own direction. Text is passed through untouched — this widget only
 /// decides how it looks, never what it says.
+///
+/// The listen and favourite controls are passed in rather than read from a
+/// provider, so this stays presentational and any screen can mount it without
+/// wiring up state.
 class HadithView extends StatelessWidget {
   const HadithView({
     required this.hadith,
     required this.languageMode,
     required this.textScale,
     this.showReference = true,
+    this.onSpeakEnglish,
+    this.isSpeaking = false,
+    this.onToggleFavourite,
+    this.isFavourite = false,
     super.key,
   });
 
@@ -29,6 +37,18 @@ class HadithView extends StatelessWidget {
 
   final bool showReference;
 
+  /// Speaks the translation, or stops it. Null hides the control, which is what
+  /// happens on a device with no English voice installed.
+  final VoidCallback? onSpeakEnglish;
+
+  /// Whether this hadith is the one currently being spoken.
+  final bool isSpeaking;
+
+  /// Saves or unsaves this hadith. Null hides the control.
+  final VoidCallback? onToggleFavourite;
+
+  final bool isFavourite;
+
   @override
   Widget build(BuildContext context) {
     final AppColors colors = context.colors;
@@ -40,6 +60,10 @@ class HadithView extends StatelessWidget {
     // whatever the source does have rather than showing an empty page.
     final bool showArabic = wantsArabic || (!wantsEnglish && hadith.hasArabic);
     final bool showEnglish = wantsEnglish || (!wantsArabic && hadith.hasEnglish);
+
+    // Speaking is only ever offered for text that is actually on screen.
+    final VoidCallback? speak = showEnglish ? onSpeakEnglish : null;
+    final bool hasActions = speak != null || onToggleFavourite != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -57,6 +81,15 @@ class HadithView extends StatelessWidget {
             'This entry has no text in the selected language.',
             style: AppTypography.body.copyWith(color: colors.textSecondary),
           ),
+        if (hasActions) ...<Widget>[
+          const SizedBox(height: AppSpacing.sm),
+          _HadithActions(
+            onSpeak: speak,
+            isSpeaking: isSpeaking,
+            onToggleFavourite: onToggleFavourite,
+            isFavourite: isFavourite,
+          ),
+        ],
         if (hadith.narrator != null) ...<Widget>[
           const SizedBox(height: AppSpacing.lg),
           Text(
@@ -76,6 +109,81 @@ class HadithView extends StatelessWidget {
   }
 }
 
+/// Listen and favourite, sitting directly beneath the passage they act on.
+///
+/// Left-aligned with the text rather than pushed to the far edge, so the pair
+/// reads as belonging to the hadith above them.
+class _HadithActions extends StatelessWidget {
+  const _HadithActions({
+    required this.onSpeak,
+    required this.isSpeaking,
+    required this.onToggleFavourite,
+    required this.isFavourite,
+  });
+
+  final VoidCallback? onSpeak;
+  final bool isSpeaking;
+  final VoidCallback? onToggleFavourite;
+  final bool isFavourite;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors colors = context.colors;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: <Widget>[
+        if (onSpeak != null)
+          _ActionButton(
+            icon: isSpeaking ? Icons.stop_rounded : Icons.volume_up_outlined,
+            // The label says what pressing it will do, which is what a screen
+            // reader announces.
+            tooltip: isSpeaking
+                ? 'Stop reading aloud'
+                : 'Listen to the translation',
+            color: isSpeaking ? colors.accent : colors.textSecondary,
+            onPressed: onSpeak,
+          ),
+        if (onToggleFavourite != null)
+          _ActionButton(
+            icon: isFavourite ? Icons.favorite : Icons.favorite_border,
+            tooltip:
+                isFavourite ? 'Remove from favourites' : 'Save to favourites',
+            color: isFavourite ? colors.accent : colors.textSecondary,
+            onPressed: onToggleFavourite,
+          ),
+      ],
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 22, color: color),
+      tooltip: tooltip,
+      constraints: const BoxConstraints(
+        minWidth: AppSpacing.minTapTarget,
+        minHeight: AppSpacing.minTapTarget,
+      ),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}
 /// A hairline rule with a small warm centre mark — the one decorative flourish
 /// in the app, standing in for the divider between text and translation.
 class HadithDivider extends StatelessWidget {

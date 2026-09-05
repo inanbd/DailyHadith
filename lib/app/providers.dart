@@ -3,20 +3,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/content/asset_hadith_content_source.dart';
 import '../data/local/app_database.dart';
+import '../data/local/favourites_dao.dart';
 import '../data/local/hadith_dao.dart';
 import '../data/local/preferences_store.dart';
 import '../data/local/progress_dao.dart';
 import '../data/notifications/local_notification_scheduler.dart';
+import '../data/repositories/favourites_repository_impl.dart';
 import '../data/repositories/hadith_repository_impl.dart';
 import '../data/repositories/progress_repository_impl.dart';
+import '../data/speech/flutter_tts_speech_synthesizer.dart';
 import '../domain/entities/hadith_collection.dart';
 import '../domain/entities/notification_preferences.dart';
 import '../domain/entities/user_preferences.dart';
+import '../domain/repositories/favourites_repository.dart';
 import '../domain/repositories/hadith_content_source.dart';
 import '../domain/repositories/hadith_repository.dart';
 import '../domain/repositories/notification_scheduler.dart';
 import '../domain/repositories/preferences_repository.dart';
 import '../domain/repositories/progress_repository.dart';
+import '../domain/repositories/speech_synthesizer.dart';
 
 /// Thrown if a provider that must be overridden at startup is read directly.
 Never _mustOverride(String name) =>
@@ -56,6 +61,10 @@ final Provider<ProgressDao> progressDaoProvider = Provider<ProgressDao>(
   (Ref ref) => ProgressDao(ref.watch(appDatabaseProvider)),
 );
 
+final Provider<FavouritesDao> favouritesDaoProvider = Provider<FavouritesDao>(
+  (Ref ref) => FavouritesDao(ref.watch(appDatabaseProvider)),
+);
+
 final Provider<HadithRepository> hadithRepositoryProvider =
     Provider<HadithRepository>(
   (Ref ref) => HadithRepositoryImpl(
@@ -69,6 +78,14 @@ final Provider<ProgressRepository> progressRepositoryProvider =
   (Ref ref) => ProgressRepositoryImpl(ref.watch(progressDaoProvider)),
 );
 
+final Provider<FavouritesRepository> favouritesRepositoryProvider =
+    Provider<FavouritesRepository>(
+  (Ref ref) => FavouritesRepositoryImpl(
+    favouritesDao: ref.watch(favouritesDaoProvider),
+    hadithDao: ref.watch(hadithDaoProvider),
+  ),
+);
+
 final Provider<PreferencesRepository> preferencesRepositoryProvider =
     Provider<PreferencesRepository>(
   (Ref ref) => PreferencesStore(ref.watch(sharedPreferencesProvider)),
@@ -76,6 +93,15 @@ final Provider<PreferencesRepository> preferencesRepositoryProvider =
 
 final Provider<NotificationScheduler> notificationSchedulerProvider =
     Provider<NotificationScheduler>((Ref ref) => LocalNotificationScheduler());
+
+/// Text-to-speech for the translation. Disposed with the scope so the engine
+/// is released when the app shuts down.
+final Provider<SpeechSynthesizer> speechSynthesizerProvider =
+    Provider<SpeechSynthesizer>((Ref ref) {
+  final SpeechSynthesizer synthesizer = FlutterTtsSpeechSynthesizer();
+  ref.onDispose(synthesizer.dispose);
+  return synthesizer;
+});
 
 // ---------------------------------------------------------------------------
 // Preferences

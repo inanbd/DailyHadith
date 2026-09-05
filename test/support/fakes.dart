@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:daily_hadith/domain/entities/chapter.dart';
 import 'package:daily_hadith/domain/entities/enums.dart';
@@ -6,6 +7,7 @@ import 'package:daily_hadith/domain/entities/hadith_collection.dart';
 import 'package:daily_hadith/domain/entities/notification_preferences.dart';
 import 'package:daily_hadith/domain/repositories/hadith_content_source.dart';
 import 'package:daily_hadith/domain/repositories/notification_scheduler.dart';
+import 'package:daily_hadith/domain/repositories/speech_synthesizer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -154,5 +156,61 @@ class MapAssetBundle extends CachingAssetBundle {
       throw FlutterError('Asset not found: $key');
     }
     return ByteData.sublistView(Uint8List.fromList(utf8.encode(value)));
+  }
+}
+
+/// A [SpeechSynthesizer] that records what it was asked to say.
+///
+/// Speaking completes immediately, so a test never has to wait on a real
+/// engine; [completeManually] holds the utterance open when a test needs to
+/// observe the speaking state.
+class FakeSpeechSynthesizer implements SpeechSynthesizer {
+  FakeSpeechSynthesizer({
+    this.available = true,
+    this.completeManually = false,
+  });
+
+  /// Whether the device claims a voice for the requested language.
+  bool available;
+
+  /// When true, [speak] does not complete until [finish] is called.
+  bool completeManually;
+
+  final List<String> spoken = <String>[];
+  final List<String> languages = <String>[];
+  int stopCalls = 0;
+  int disposeCalls = 0;
+
+  Completer<void>? _pending;
+
+  @override
+  Future<bool> isLanguageAvailable(String languageCode) async => available;
+
+  @override
+  Future<void> speak(String text, {required String languageCode}) async {
+    spoken.add(text);
+    languages.add(languageCode);
+    if (!completeManually) return;
+    final Completer<void> completer = Completer<void>();
+    _pending = completer;
+    return completer.future;
+  }
+
+  /// Completes an utterance held open by [completeManually].
+  void finish() {
+    _pending?.complete();
+    _pending = null;
+  }
+
+  @override
+  Future<void> stop() async {
+    stopCalls++;
+    _pending?.complete();
+    _pending = null;
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposeCalls++;
   }
 }

@@ -13,10 +13,12 @@ import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_page.dart';
 import '../../shared/widgets/notice_banner.dart';
 import '../../shared/widgets/settings_group.dart';
+import 'reminder_permission_flow.dart';
 import 'settings_labels.dart';
 
 /// Reminder frequency, days and time — plus an honest account of whether the
-/// operating system is actually letting reminders through.
+/// operating system is actually letting reminders through, and a way to fix it
+/// when it is not.
 class NotificationSettingsScreen extends ConsumerWidget {
   const NotificationSettingsScreen({super.key});
 
@@ -24,11 +26,14 @@ class NotificationSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final NotificationPreferences preferences =
         ref.watch(notificationPreferencesProvider);
-    final AsyncValue<NotificationPermissionStatus> permission =
-        ref.watch(notificationPermissionProvider);
+    final AsyncValue<ReminderReadiness> readinessAsync =
+        ref.watch(reminderReadinessProvider);
+    // Until the platform has answered, the OS is given the benefit of the
+    // doubt: nothing is reported as blocked or missing on the strength of a
+    // question that has not come back yet.
+    final ReminderReadiness readiness =
+        readinessAsync.value ?? ReminderReadiness.unknown;
     final bool use24Hour = MediaQuery.alwaysUse24HourFormatOf(context);
-    final bool blocked =
-        permission.value == NotificationPermissionStatus.denied;
 
     return AppPage(
       title: 'Notifications',
@@ -36,13 +41,15 @@ class NotificationSettingsScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          if (preferences.enabled && blocked) ...<Widget>[
-            const NoticeBanner(
+          if (preferences.enabled && readiness.isBlocked) ...<Widget>[
+            NoticeBanner(
               tone: NoticeTone.warning,
               title: 'Reminders are blocked',
               message:
-                  'Notifications are disabled in your device settings. Your '
-                  'reading and progress still work as normal.',
+                  'Notifications are turned off for Daily Hadith in your device '
+                  'settings, so nothing can reach you. Your reading and '
+                  'progress still work as normal.',
+              action: const _OpenDeviceSettingsButton(),
             ),
             const SizedBox(height: AppSpacing.xl),
           ],
@@ -57,7 +64,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                         'to read your next hadith.',
                 trailing: Switch(
                   value: preferences.enabled,
-                  onChanged: (bool value) => _setEnabled(ref, value),
+                  onChanged: (bool value) => _setEnabled(context, ref, value),
                 ),
               ),
             ],
@@ -113,6 +120,10 @@ class NotificationSettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            if (readinessAsync.hasValue && !readiness.isBlocked) ...<Widget>[
+              const SizedBox(height: AppSpacing.xl),
+              _DeliveryGroup(readiness: readiness),
+            ],
             const SizedBox(height: AppSpacing.xl),
             _UpcomingReminders(preferences: preferences),
           ],
@@ -121,21 +132,19 @@ class NotificationSettingsScreen extends ConsumerWidget {
     );
   }
 
-  /// Turning reminders on is the moment the OS prompt makes sense: the reader
+  /// Turning reminders on is the moment the OS prompts make sense: the reader
   /// has already said what they want.
-  static Future<void> _setEnabled(WidgetRef ref, bool enabled) async {
+  static Future<void> _setEnabled(
+    BuildContext context,
+    WidgetRef ref,
+    bool enabled,
+  ) async {
     final NotificationPreferences preferences =
         ref.read(notificationPreferencesProvider);
 
-    if (enabled) {
-      final NotificationScheduler scheduler =
-          ref.read(notificationSchedulerProvider);
-      final NotificationPermissionStatus status =
-          await scheduler.permissionStatus();
-      if (status == NotificationPermissionStatus.notDetermined) {
-        await scheduler.requestPermission();
-      }
-    }
+    // Permissions first, so the reminders armed below can be armed as exact
+    // alarms rather than approximate ones.
+    if (enabled) await ReminderPermissionFlow.run(context);
 
     await _update(ref, preferences.copyWith(enabled: enabled));
   }
@@ -169,6 +178,131 @@ class NotificationSettingsScreen extends ConsumerWidget {
         time: TimeOfDayValue(picked.hour, picked.minute),
       ),
     );
+  }
+}
+
+/// Takes the reader to the system screen where notifications can be switched
+/// back on.
+///
+/// Not every platform lets an app open that screen. When it cannot, the reader
+/// is told where to go rather than left with a button that does nothing.
+class _OpenDeviceSettingsButton extends ConsumerWidget {
+  const _OpenDeviceSettingsButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return TextButton(
+      onPressed: () async {
+        final bool opened =
+            await ReminderPermissionFlow.openSystemSettings(context);
+        if (opened || !context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Turn Daily Hadith back on under Notifications in your '
+              'device settings.',
+            ),
+          ),
+        );
+      },
+      child: const Text('Open device settings'),
+    );
+  }
+}
+
+/// The permissions that decide whether a reminder arrives *on time*, and every
+/// day, rather than whether it arrives at all.
+///
+/// Shown as plain status rows the reader can act on, because these are the two
+/// things that make a correctly scheduled reminder turn up hours late or stop
+/// turning up at all — and neither is discoverable from the OS side.
+class _DeliveryGroup extends StatelessWidget {
+  const _DeliveryGroup({required this.readiness});
+
+  final ReminderReadiness readiness;
+
+  /// Requirements this platform actually has. iOS delivers reminders itself,
+  /// so on it there is nothing here worth showing.
+  static const List<ReminderRequirement> _requirements = <ReminderRequirement>[
+    ReminderRequirement.exactTiming,
+    ReminderRequirement.background,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors colors = context.colors;
+    final List<ReminderRequirement> shown = <ReminderRequirement>[
+      for (final ReminderRequirement requirement in _requirements)
+        if (readiness.statusOf(requirement) !=
+            NotificationPermissionStatus.unsupported)
+          requirement,
+    ];
+    if (shown.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SettingsGroup(
+          title: 'Delivery',
+          children: <Widget>[
+            for (final ReminderRequirement requirement in shown)
+              _RequirementRow(
+                requirement: requirement,
+                status: readiness.statusOf(requirement),
+              ),
+          ],
+        ),
+        if (readiness.isUnreliable) ...<Widget>[
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Some phones also have their own battery manager — often under '
+            'Battery or App management — that puts apps to sleep. Allowing '
+            'Daily Hadith to run in the background there keeps reminders '
+            'arriving every day.',
+            style: AppTypography.reference.copyWith(
+              color: colors.textSecondary,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _RequirementRow extends ConsumerStatefulWidget {
+  const _RequirementRow({required this.requirement, required this.status});
+
+  final ReminderRequirement requirement;
+  final NotificationPermissionStatus status;
+
+  @override
+  ConsumerState<_RequirementRow> createState() => _RequirementRowState();
+}
+
+class _RequirementRowState extends ConsumerState<_RequirementRow> {
+  bool _asking = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool granted =
+        widget.status == NotificationPermissionStatus.granted;
+    return SettingsRow(
+      label: ReminderRequirementLabels.name(widget.requirement),
+      description: ReminderRequirementLabels.reason(widget.requirement),
+      value: ReminderRequirementLabels.status(widget.status),
+      // Granted needs no action, and re-asking would only bounce the reader
+      // out to a settings screen for no reason.
+      onTap: granted || _asking ? null : _request,
+    );
+  }
+
+  Future<void> _request() async {
+    setState(() => _asking = true);
+    try {
+      await ReminderPermissionFlow.requestOne(context, widget.requirement);
+    } finally {
+      if (mounted) setState(() => _asking = false);
+    }
   }
 }
 

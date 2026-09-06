@@ -43,7 +43,7 @@ class _DailyHadithAppState extends ConsumerState<DailyHadithApp>
     if (state != AppLifecycleState.resumed) return;
     // The reader may have changed notification permission in system settings,
     // and enough time may have passed for the book to move on.
-    ref.invalidate(notificationPermissionProvider);
+    ref.invalidate(reminderReadinessProvider);
     ref.read(todayControllerProvider.notifier).refresh();
   }
 
@@ -61,6 +61,23 @@ class _DailyHadithAppState extends ConsumerState<DailyHadithApp>
     ) {
       final HadithDeepLink? link = next.value?.launchDeepLink;
       if (link != null) _openFromReminder(link);
+    });
+
+    // A permission granted or withdrawn in system settings while the app was in
+    // the background.
+    //
+    // Reminders are armed as exact alarms only where the OS allows it, and the
+    // mode is fixed at the moment they are scheduled. So a reader who turns
+    // "Alarms & reminders" on and comes back needs them armed again — otherwise
+    // they fix the setting and nothing changes until the next cold start.
+    ref.listen(reminderReadinessProvider, (
+      AsyncValue<ReminderReadiness>? previous,
+      AsyncValue<ReminderReadiness> next,
+    ) {
+      final ReminderReadiness? before = previous?.value;
+      final ReminderReadiness? after = next.value;
+      if (before == null || after == null || before == after) return;
+      ref.read(notificationPreferencesProvider.notifier).applyToScheduler();
     });
 
     // A reminder tapped while the app was running.

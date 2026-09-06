@@ -114,6 +114,10 @@ class HadithRepositoryImpl implements HadithRepository {
   Future<List<HadithChapter>> chapters(String collectionId) =>
       dao.chapters(collectionId);
 
+  @override
+  Future<int?> firstOrdinalOfChapter(String collectionId, int chapterNumber) =>
+      dao.firstOrdinalOfChapter(collectionId, chapterNumber);
+
   Future<HadithCollection?> _catalogEntry(String collectionId) async {
     final List<HadithCollection> catalog = await contentSource.loadCatalog();
     for (final HadithCollection collection in catalog) {

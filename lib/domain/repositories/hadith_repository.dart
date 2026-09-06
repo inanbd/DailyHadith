@@ -27,4 +27,8 @@ abstract interface class HadithRepository {
   Future<int> installedCount(String collectionId);
 
   Future<List<HadithChapter>> chapters(String collectionId);
+
+  /// The reading position of the first hadith in a chapter, or null when
+  /// nothing is stored against it.
+  Future<int?> firstOrdinalOfChapter(String collectionId, int chapterNumber);
 }

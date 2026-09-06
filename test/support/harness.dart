@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -158,6 +159,14 @@ extension HarnessActions on TestHarness {
     final T? result = await tester.runAsync(action);
     await settle(tester);
     return result;
+  }
+
+  /// Navigates to [location] and settles, the way a tap on the matching row
+  /// would.
+  Future<void> goTo(WidgetTester tester, String location) async {
+    final BuildContext context = tester.element(find.byType(Scaffold).first);
+    context.go(location);
+    await settle(tester);
   }
 
   /// Scrolls a button into view and taps it.

@@ -52,8 +52,12 @@ class _FavouritesList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final UserPreferences preferences = ref.watch(userPreferencesProvider);
-    final String? speakingId = ref.watch(speechControllerProvider);
-    final bool canSpeak = ref.watch(speechAvailableProvider).value ?? false;
+    final SpokenUtterance? speaking = ref.watch(speechControllerProvider);
+    final bool canSpeakEnglish =
+        ref.watch(speechAvailableProvider(kEnglishSpeechLanguage)).value ??
+            false;
+    final bool canSpeakArabic =
+        ref.watch(speechAvailableProvider(kArabicSpeechLanguage)).value ?? false;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -70,8 +74,9 @@ class _FavouritesList extends ConsumerWidget {
             item: item,
             languageMode: preferences.languageMode,
             textScale: preferences.textSize.scale,
-            isSpeaking: speakingId == item.hadith.id,
-            canSpeak: canSpeak,
+            speaking: speaking,
+            canSpeakEnglish: canSpeakEnglish,
+            canSpeakArabic: canSpeakArabic,
           ),
           const SizedBox(height: AppSpacing.xl),
         ],
@@ -86,15 +91,17 @@ class _FavouriteCard extends ConsumerWidget {
     required this.item,
     required this.languageMode,
     required this.textScale,
-    required this.isSpeaking,
-    required this.canSpeak,
+    required this.speaking,
+    required this.canSpeakEnglish,
+    required this.canSpeakArabic,
   });
 
   final FavouriteHadith item;
   final LanguageMode languageMode;
   final double textScale;
-  final bool isSpeaking;
-  final bool canSpeak;
+  final SpokenUtterance? speaking;
+  final bool canSpeakEnglish;
+  final bool canSpeakArabic;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -135,12 +142,30 @@ class _FavouriteCard extends ConsumerWidget {
             textScale: textScale,
             // The citation is already in the card heading.
             showReference: false,
-            onSpeakEnglish: canSpeak
-                ? () => ref
-                    .read(speechControllerProvider.notifier)
-                    .toggle(item.hadith.id, item.hadith.englishText ?? '')
+            onSpeakArabic: canSpeakArabic
+                ? () => ref.read(speechControllerProvider.notifier).toggle(
+                      item.hadith.id,
+                      item.hadith.arabicText ?? '',
+                      languageCode: kArabicSpeechLanguage,
+                    )
                 : null,
-            isSpeaking: isSpeaking,
+            isSpeakingArabic: speaking ==
+                SpokenUtterance(
+                  hadithId: item.hadith.id,
+                  languageCode: kArabicSpeechLanguage,
+                ),
+            onSpeakEnglish: canSpeakEnglish
+                ? () => ref.read(speechControllerProvider.notifier).toggle(
+                      item.hadith.id,
+                      item.hadith.englishText ?? '',
+                      languageCode: kEnglishSpeechLanguage,
+                    )
+                : null,
+            isSpeakingEnglish: speaking ==
+                SpokenUtterance(
+                  hadithId: item.hadith.id,
+                  languageCode: kEnglishSpeechLanguage,
+                ),
             // Always true here: every card on this screen is a favourite, so
             // the heart is the way to remove it.
             isFavourite: true,

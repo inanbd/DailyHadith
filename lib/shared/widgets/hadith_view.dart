@@ -21,8 +21,10 @@ class HadithView extends StatelessWidget {
     required this.languageMode,
     required this.textScale,
     this.showReference = true,
+    this.onSpeakArabic,
+    this.isSpeakingArabic = false,
     this.onSpeakEnglish,
-    this.isSpeaking = false,
+    this.isSpeakingEnglish = false,
     this.onToggleFavourite,
     this.isFavourite = false,
     super.key,
@@ -37,12 +39,20 @@ class HadithView extends StatelessWidget {
 
   final bool showReference;
 
+  /// Speaks the Arabic, or stops it. Null hides the control — which is the
+  /// common case, since an Arabic voice is not installed by default on many
+  /// devices.
+  final VoidCallback? onSpeakArabic;
+
+  /// Whether this hadith's Arabic is the utterance currently being spoken.
+  final bool isSpeakingArabic;
+
   /// Speaks the translation, or stops it. Null hides the control, which is what
   /// happens on a device with no English voice installed.
   final VoidCallback? onSpeakEnglish;
 
-  /// Whether this hadith is the one currently being spoken.
-  final bool isSpeaking;
+  /// Whether this hadith's translation is the utterance currently being spoken.
+  final bool isSpeakingEnglish;
 
   /// Saves or unsaves this hadith. Null hides the control.
   final VoidCallback? onToggleFavourite;
@@ -69,11 +79,43 @@ class HadithView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         if (showArabic) _ArabicText(text: hadith.arabicText!, scale: textScale),
+        // Sits under the Arabic, on the side the Arabic starts from, so it
+        // belongs to that passage rather than to the translation below.
+        if (showArabic && onSpeakArabic != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: _ActionButton(
+              icon: isSpeakingArabic
+                  ? Icons.stop_rounded
+                  : Icons.volume_up_outlined,
+              tooltip: isSpeakingArabic
+                  ? 'Stop reading aloud'
+                  : 'Listen to the Arabic',
+              color: isSpeakingArabic ? colors.accent : colors.textSecondary,
+              onPressed: onSpeakArabic,
+            ),
+          ),
         if (showArabic && showEnglish)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
             child: HadithDivider(),
           ),
+        // Who reported it comes before the translation: the line introduces
+        // the hadith ("… reported:"), so it has to be read first to make sense
+        // of what follows.
+        if (hadith.narrator != null) ...<Widget>[
+          // The divider above already supplies the gap when both languages are
+          // on screen; on its own, the Arabic does not.
+          if (showArabic && !showEnglish) const SizedBox(height: AppSpacing.lg),
+          Text(
+            hadith.narrator!,
+            style: AppTypography.reference.copyWith(
+              color: colors.textSecondary,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          if (showEnglish) const SizedBox(height: AppSpacing.md),
+        ],
         if (showEnglish)
           _EnglishText(text: hadith.englishText!, scale: textScale),
         if (!showArabic && !showEnglish)
@@ -85,19 +127,9 @@ class HadithView extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           _HadithActions(
             onSpeak: speak,
-            isSpeaking: isSpeaking,
+            isSpeaking: isSpeakingEnglish,
             onToggleFavourite: onToggleFavourite,
             isFavourite: isFavourite,
-          ),
-        ],
-        if (hadith.narrator != null) ...<Widget>[
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            hadith.narrator!,
-            style: AppTypography.reference.copyWith(
-              color: colors.textSecondary,
-              fontStyle: FontStyle.italic,
-            ),
           ),
         ],
         if (showReference) ...<Widget>[

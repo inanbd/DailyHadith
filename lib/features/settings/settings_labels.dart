@@ -1,6 +1,7 @@
 import '../../core/utils/formatting.dart';
 import '../../domain/entities/enums.dart';
 import '../../domain/entities/notification_preferences.dart';
+import '../../domain/entities/reminder_readiness.dart';
 
 /// Human-readable names for preference values. Kept in one place so the
 /// settings hub and the detail screens can never drift apart.
@@ -68,6 +69,50 @@ abstract final class SettingsLabels {
           (int a, int b) => a < b ? a : b,
         );
         return '$name · ${Formatting.fullWeekday(day)}';
+    }
+  }
+}
+
+/// How the operating system's reminder permissions are described to the
+/// reader. Deliberately plain: the reader is being asked to change a system
+/// setting, so they are told what it does, not what it is called internally.
+abstract final class ReminderRequirementLabels {
+  static String name(ReminderRequirement requirement) {
+    switch (requirement) {
+      case ReminderRequirement.notifications:
+        return 'Notifications';
+      case ReminderRequirement.exactTiming:
+        return 'Exact timing';
+      case ReminderRequirement.background:
+        return 'Unrestricted battery use';
+    }
+  }
+
+  /// What the reader loses without it.
+  static String reason(ReminderRequirement requirement) {
+    switch (requirement) {
+      case ReminderRequirement.notifications:
+        return 'Without this, no reminder can reach you.';
+      case ReminderRequirement.exactTiming:
+        return 'Lets a reminder arrive at the minute you chose instead of '
+            'whenever your phone next wakes up.';
+      case ReminderRequirement.background:
+        return 'Stops your phone putting the app to sleep and cancelling '
+            'tomorrow’s reminder with it.';
+    }
+  }
+
+  /// The value shown on the right of a settings row.
+  static String status(NotificationPermissionStatus status) {
+    switch (status) {
+      case NotificationPermissionStatus.granted:
+        return 'Allowed';
+      case NotificationPermissionStatus.denied:
+        return 'Not allowed';
+      case NotificationPermissionStatus.notDetermined:
+        return 'Not set';
+      case NotificationPermissionStatus.unsupported:
+        return 'Not needed';
     }
   }
 }

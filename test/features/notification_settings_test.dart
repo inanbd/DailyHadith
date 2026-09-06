@@ -1,4 +1,5 @@
 import 'package:daily_hadith/app/providers.dart';
+import 'package:daily_hadith/app/routes.dart';
 import 'package:daily_hadith/domain/entities/enums.dart';
 import 'package:daily_hadith/domain/entities/notification_preferences.dart';
 import 'package:daily_hadith/domain/repositories/notification_scheduler.dart';
@@ -125,11 +126,121 @@ void main() {
     expect(find.text('Hadith 1'), findsOneWidget);
 
     // The provider is lazy, so resolve it the way the settings screen does.
-    final NotificationPermissionStatus? status = await harness.act(
+    final ReminderReadiness? readiness = await harness.act(
       tester,
-      () => harness.container.read(notificationPermissionProvider.future),
+      () => harness.container.read(reminderReadinessProvider.future),
     );
-    expect(status, NotificationPermissionStatus.denied);
+    expect(readiness?.notifications, NotificationPermissionStatus.denied);
+    expect(readiness?.isBlocked, isTrue);
+  });
+
+  testWidgets('turning reminders on raises the OS notification prompt',
+      (WidgetTester tester) async {
+    final FakeNotificationScheduler scheduler = FakeNotificationScheduler(
+      status: NotificationPermissionStatus.denied,
+    );
+    final TestHarness harness = await TestHarness.create(
+      scheduler: scheduler,
+      initialPreferences: onboarded(remindersOn: false),
+    );
+    await harness.pumpApp(tester);
+    await harness.goTo(tester, Routes.settingsNotifications);
+
+    expect(scheduler.permissionRequests, 0);
+
+    await tester.tap(find.byType(Switch));
+    await harness.settle(tester);
+
+    expect(scheduler.requested, contains(ReminderRequirement.notifications));
+    // Permission is asked for before the reminders are armed, so they can be
+    // armed as exact alarms rather than approximate ones.
+    expect(scheduler.scheduledPreferences.last.enabled, isTrue);
+  });
+
+  testWidgets('the punctuality permissions are explained, then asked for',
+      (WidgetTester tester) async {
+    final FakeNotificationScheduler scheduler = FakeNotificationScheduler(
+      otherRequirements: FakeNotificationScheduler.androidUnasked,
+    );
+    final TestHarness harness = await TestHarness.create(
+      scheduler: scheduler,
+      initialPreferences: onboarded(remindersOn: false),
+    );
+    await harness.pumpApp(tester);
+    await harness.goTo(tester, Routes.settingsNotifications);
+
+    await tester.tap(find.byType(Switch));
+    await harness.settle(tester);
+
+    // The reader is told what the system screens are for before being sent to
+    // them, and nothing has been requested yet.
+    expect(find.text('Two more permissions'), findsOneWidget);
+    expect(scheduler.requested, isNot(contains(ReminderRequirement.exactTiming)));
+
+    await tester.tap(find.text('Continue'));
+    await harness.settle(tester);
+
+    expect(scheduler.requested, containsAll(<ReminderRequirement>[
+      ReminderRequirement.exactTiming,
+      ReminderRequirement.background,
+    ]));
+    expect((await scheduler.readiness()).isReady, isTrue);
+  });
+
+  testWidgets('declining the punctuality prompts still turns reminders on',
+      (WidgetTester tester) async {
+    final FakeNotificationScheduler scheduler = FakeNotificationScheduler(
+      otherRequirements: FakeNotificationScheduler.androidUnasked,
+    );
+    final TestHarness harness = await TestHarness.create(
+      scheduler: scheduler,
+      initialPreferences: onboarded(remindersOn: false),
+    );
+    await harness.pumpApp(tester);
+    await harness.goTo(tester, Routes.settingsNotifications);
+
+    await tester.tap(find.byType(Switch));
+    await harness.settle(tester);
+    await tester.tap(find.text('Not now'));
+    await harness.settle(tester);
+
+    expect(scheduler.requested, isNot(contains(ReminderRequirement.exactTiming)));
+    // Reminders are on regardless: declining costs punctuality, not the
+    // feature.
+    expect(
+      harness.container.read(notificationPreferencesProvider).enabled,
+      isTrue,
+    );
+    expect(scheduler.scheduledPreferences.last.enabled, isTrue);
+    // And the fix stays on offer.
+    expect(find.text('Exact timing'), findsOneWidget);
+    expect(find.text('Not allowed'), findsNWidgets(2));
+  });
+
+  testWidgets('a requirement fixed later re-arms the reminders',
+      (WidgetTester tester) async {
+    final FakeNotificationScheduler scheduler = FakeNotificationScheduler(
+      otherRequirements: FakeNotificationScheduler.androidUnasked,
+    );
+    final TestHarness harness = await TestHarness.create(
+      scheduler: scheduler,
+      initialPreferences: onboarded(),
+    );
+    await harness.pumpApp(tester);
+    await harness.goTo(tester, Routes.settingsNotifications);
+
+    final int armedBefore = scheduler.scheduledPreferences.length;
+    // The row sits below the fold on a test-sized viewport.
+    await tester.ensureVisible(find.text('Exact timing'));
+    await tester.pump();
+    await tester.tap(find.text('Exact timing'));
+    await harness.settle(tester);
+
+    expect(scheduler.requested, contains(ReminderRequirement.exactTiming));
+    // Being allowed exact alarms only changes anything once the reminders are
+    // scheduled again, so the grant has to re-arm them.
+    expect(scheduler.scheduledPreferences.length, armedBefore + 1);
+    expect(find.text('Allowed'), findsOneWidget);
   });
 
   testWidgets('startup re-arms reminders so they survive a restart',

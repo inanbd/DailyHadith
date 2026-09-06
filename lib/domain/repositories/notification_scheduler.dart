@@ -1,25 +1,12 @@
 import 'package:meta/meta.dart';
 
 import '../entities/notification_preferences.dart';
+import '../entities/reminder_readiness.dart';
 
-/// Whether the operating system currently lets the app post notifications.
-///
-/// Kept separate from [NotificationPreferences.enabled]: the reader can want
-/// reminders while the OS denies them, and the UI needs to say so plainly.
-enum NotificationPermissionStatus {
-  /// Permission granted.
-  granted,
-
-  /// Explicitly denied, or turned off in system settings.
-  denied,
-
-  /// Never asked. The app deliberately stays here until the reader has chosen
-  /// a reminder time, so the OS prompt arrives with context.
-  notDetermined,
-
-  /// Platform does not support notifications.
-  unsupported,
-}
+// `NotificationPermissionStatus` and the requirements it describes are domain
+// values, not implementation details, so they live with the entities. Re-
+// exported here because everything that talks to a scheduler needs them.
+export '../entities/reminder_readiness.dart';
 
 /// Where a tapped notification should take the reader.
 @immutable
@@ -47,11 +34,28 @@ abstract interface class NotificationScheduler {
   /// Prepares the plugin and timezone database. Safe to call more than once.
   Future<void> initialize();
 
-  Future<NotificationPermissionStatus> permissionStatus();
+  /// What the operating system is currently allowing.
+  ///
+  /// Re-read on every resume, because the reader may have changed any of it in
+  /// system settings while the app was in the background.
+  Future<ReminderReadiness> readiness();
 
-  /// Asks the OS for permission. Only called after the reader has chosen when
-  /// they want to be reminded.
-  Future<bool> requestPermission();
+  /// Raises the operating system's own prompt for [requirement] and reports
+  /// whether it ended up granted.
+  ///
+  /// Only called once the reader has asked for reminders, so every prompt
+  /// arrives with a reason the reader has already agreed to. Requirements the
+  /// platform does not have return true — there is nothing to withhold.
+  Future<bool> request(ReminderRequirement requirement);
+
+  /// Opens this app's page in the system's notification settings.
+  ///
+  /// The escape hatch for a permission the OS will no longer prompt for: once
+  /// notifications have been refused, [request] returns false without showing
+  /// anything, and system settings is the only way back.
+  ///
+  /// Returns false when the platform could not open it.
+  Future<bool> openSystemNotificationSettings();
 
   /// Cancels everything pending and re-arms from [preferences].
   ///

@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
 
+import '../domain/entities/chapter.dart';
 import '../domain/entities/hadith_collection.dart';
 import '../domain/entities/user_preferences.dart';
 import '../domain/entities/reading_progress.dart';
+import '../domain/repositories/hadith_repository.dart';
 import '../domain/repositories/progress_repository.dart';
 import 'providers.dart';
 
@@ -120,4 +122,21 @@ final FutureProvider<HadithCollection?> currentCollectionProvider =
   );
   if (id == null) return null;
   return ref.watch(collectionProvider(id).future);
+});
+
+/// Chapters for a collection, empty when the imported dataset carried none.
+///
+/// Chapter metadata is optional in the content contract, so the UI treats an
+/// empty list as "this book has no chapters" and offers no chapter browsing at
+/// all rather than an empty sheet.
+final chaptersProvider =
+    FutureProvider.family<List<HadithChapter>, String>((
+  Ref ref,
+  String collectionId,
+) async {
+  final HadithRepository repository = ref.watch(hadithRepositoryProvider);
+  // A no-op once the book is installed, but it guarantees chapters are never
+  // read from a half-copied collection on first open.
+  await repository.installCollection(collectionId);
+  return repository.chapters(collectionId);
 });

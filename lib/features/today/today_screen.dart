@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/collection_providers.dart';
 import '../../app/favourites_providers.dart';
 import '../../app/providers.dart';
 import '../../app/routes.dart';
@@ -20,31 +23,174 @@ import '../../shared/widgets/hadith_view.dart';
 import '../../shared/widgets/notice_banner.dart';
 import '../../shared/widgets/progress_bar.dart';
 import '../../shared/widgets/state_views.dart';
+import 'chapters_sheet.dart';
 import 'today_controller.dart';
 
 /// The default screen: today's hadith, and almost nothing else.
-class TodayScreen extends ConsumerWidget {
+///
+/// Owns one behaviour beyond rendering: a hadith the reader has actually read
+/// marks itself. See [_considerAutoMark].
+class TodayScreen extends ConsumerStatefulWidget {
   const TodayScreen({super.key});
+
+  /// How long the end of the hadith has to stay on screen before it counts as
+  /// read.
+  ///
+  /// Long enough that scrolling to the bottom on the way to *Next* does not
+  /// mark anything, short enough that someone who has genuinely finished
+  /// reading never has to press a button.
+  static const Duration dwell = Duration(seconds: 5);
+
+  @override
+  ConsumerState<TodayScreen> createState() => _TodayScreenState();
+}
+
+class _TodayScreenState extends ConsumerState<TodayScreen> {
+  /// Sits at the end of the hadith. Auto-marking waits for it to come into
+  /// view, which is what "scrolled through the whole thing" means.
+  final GlobalKey _endOfHadith = GlobalKey();
+
+  Timer? _dwell;
+
+  /// The hadith the running timer belongs to, so a timer armed for one hadith
+  /// can never mark a different one.
+  String? _armedFor;
+
+  /// Hadith already marked this way. Marking happens once per hadith and never
+  /// again: a reader who deliberately marks it back as unread has overruled
+  /// us, and must not be fought over it.
+  final Set<String> _autoMarked = <String>{};
+
+  @override
+  void dispose() {
+    _dwell?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AsyncValue<TodayState> state = ref.watch(todayControllerProvider);
+
+    // Moving to another hadith retires a timer armed for the last one.
+    final String? hadithId = state.value?.hadith?.id;
+    if (_armedFor != null && _armedFor != hadithId) {
+      _dwell?.cancel();
+      _dwell = null;
+      _armedFor = null;
+    }
+
+    // A hadith short enough to fit without scrolling is fully read the moment
+    // it appears, and produces no scroll notification to say so.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _considerAutoMark());
+
+    return NotificationListener<ScrollNotification>(
+      // An ancestor of the page's scroll view, which is the only place these
+      // notifications can be caught from.
+      onNotification: (ScrollNotification notification) {
+        _considerAutoMark();
+        // Never absorb it: the scroll view's own listeners still need it.
+        return false;
+      },
+      child: AppPage(
+        title: 'Today’s Hadith',
+        actions: <Widget>[_ChaptersButton(collectionId: state.value?.collection?.id)],
+        child: state.when(
+          loading: () => const LoadingView(),
+          error: (Object error, StackTrace stack) => _TodayError(error: error),
+          data: (TodayState value) =>
+              _TodayBody(state: value, endOfHadithKey: _endOfHadith),
+        ),
+      ),
+    );
+  }
+
+  /// Starts the dwell timer once the reader has reached the end of an unread
+  /// hadith.
+  ///
+  /// Deliberately not cancelled by scrolling back up: having reached the end
+  /// and stayed is the signal, and re-reading a passage is not a reason to
+  /// withdraw it.
+  void _considerAutoMark() {
+    if (!mounted) return;
+
+    final TodayState? current = ref.read(todayControllerProvider).value;
+    final Hadith? hadith = current?.hadith;
+    if (hadith == null || current!.isRead) return;
+    if (_autoMarked.contains(hadith.id)) return;
+    if (_armedFor == hadith.id) return;
+    if (!_hasReachedEnd()) return;
+
+    _armedFor = hadith.id;
+    _dwell = Timer(TodayScreen.dwell, () => _markRead(hadith.id));
+  }
+
+  /// Whether the end of the hadith has scrolled into the viewport.
+  bool _hasReachedEnd() {
+    final BuildContext? marker = _endOfHadith.currentContext;
+    if (marker == null) return false;
+    final RenderObject? object = marker.findRenderObject();
+    if (object is! RenderBox || !object.hasSize) return false;
+    return object.localToGlobal(Offset.zero).dy <=
+        MediaQuery.sizeOf(context).height;
+  }
+
+  void _markRead(String hadithId) {
+    if (!mounted) return;
+    _armedFor = null;
+
+    // The reader may have moved on, or marked it read themselves, in the
+    // seconds the timer was running.
+    final TodayState? current = ref.read(todayControllerProvider).value;
+    if (current?.hadith?.id != hadithId || current!.isRead) return;
+
+    _autoMarked.add(hadithId);
+    ref.read(todayControllerProvider.notifier).markRead();
+  }
+}
+
+/// A way into the chapter list, for books whose dataset carried one.
+///
+/// Absent entirely when it would do nothing — a book with no chapter metadata,
+/// or none loaded yet — rather than present and inert.
+class _ChaptersButton extends ConsumerWidget {
+  const _ChaptersButton({required this.collectionId});
+
+  final String? collectionId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final AsyncValue<TodayState> state = ref.watch(todayControllerProvider);
+    final String? id = collectionId;
+    if (id == null) return const SizedBox.shrink();
 
-    return AppPage(
-      title: 'Today’s Hadith',
-      child: state.when(
-        loading: () => const LoadingView(),
-        error: (Object error, StackTrace stack) => _TodayError(error: error),
-        data: (TodayState value) => _TodayBody(state: value),
+    final bool hasChapters =
+        ref.watch(chaptersProvider(id)).value?.isNotEmpty ?? false;
+    if (!hasChapters) return const SizedBox.shrink();
+
+    return IconButton(
+      onPressed: () => ChaptersSheet.open(context, id),
+      icon: Icon(
+        Icons.list_alt_outlined,
+        size: 22,
+        color: context.colors.textSecondary,
       ),
+      tooltip: 'Chapters',
+      constraints: const BoxConstraints(
+        minWidth: AppSpacing.minTapTarget,
+        minHeight: AppSpacing.minTapTarget,
+      ),
+      visualDensity: VisualDensity.compact,
     );
   }
 }
 
 class _TodayBody extends ConsumerWidget {
-  const _TodayBody({required this.state});
+  const _TodayBody({required this.state, required this.endOfHadithKey});
 
   final TodayState state;
+
+  /// Attached to the end of the hadith, so the screen above can tell when the
+  /// reader has scrolled all the way through it.
+  final Key endOfHadithKey;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -73,59 +219,114 @@ class _TodayBody extends ConsumerWidget {
     }
 
     final UserPreferences preferences = ref.watch(userPreferencesProvider);
-    final String? speakingId = ref.watch(speechControllerProvider);
-    // A device with no English voice gets no play button at all.
-    final bool canSpeak = ref.watch(speechAvailableProvider).value ?? false;
+    final SpokenUtterance? speaking = ref.watch(speechControllerProvider);
+    // A device without a given voice gets no play button for it at all. Arabic
+    // is the one most often missing.
+    final bool canSpeakEnglish =
+        ref.watch(speechAvailableProvider(kEnglishSpeechLanguage)).value ??
+            false;
+    final bool canSpeakArabic =
+        ref.watch(speechAvailableProvider(kArabicSpeechLanguage)).value ?? false;
     final bool isFavourite =
         ref.watch(isFavouriteProvider(hadith)).value ?? false;
     final ReadingProgress progress = state.progress!;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        _HadithMeta(collection: collection, hadith: hadith),
-        if (collection.isFixture) ...<Widget>[
-          const SizedBox(height: AppSpacing.lg),
-          const NoticeBanner(
-            tone: NoticeTone.warning,
-            title: 'Development data',
-            message:
-                'This is placeholder text for building and testing the app — '
-                'not hadith. Import a verified collection to read real content.',
+    return GestureDetector(
+      // Horizontal only, so the page still scrolls vertically — the gesture
+      // arena decides which axis the reader actually moved along. Opaque so a
+      // swipe works anywhere on the page, including the margins; taps still
+      // reach the buttons, which are hit-tested first.
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragEnd: (DragEndDetails details) =>
+          _onSwipe(ref, details.primaryVelocity ?? 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          _HadithMeta(collection: collection, hadith: hadith),
+          if (collection.isFixture) ...<Widget>[
+            const SizedBox(height: AppSpacing.lg),
+            const NoticeBanner(
+              tone: NoticeTone.warning,
+              title: 'Development data',
+              message:
+                  'This is placeholder text for building and testing the app — '
+                  'not hadith. Import a verified collection to read real content.',
+            ),
+          ],
+          const SizedBox(height: AppSpacing.xl),
+          // A gentle cross-fade when the hadith changes, keyed so the animation
+          // runs on content change rather than on every rebuild.
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 240),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            child: HadithView(
+              key: ValueKey<String>(hadith.id),
+              hadith: hadith,
+              languageMode: preferences.languageMode,
+              textScale: preferences.textSize.scale,
+              onSpeakArabic: canSpeakArabic
+                  ? () => ref.read(speechControllerProvider.notifier).toggle(
+                        hadith.id,
+                        hadith.arabicText ?? '',
+                        languageCode: kArabicSpeechLanguage,
+                      )
+                  : null,
+              isSpeakingArabic: speaking ==
+                  SpokenUtterance(
+                    hadithId: hadith.id,
+                    languageCode: kArabicSpeechLanguage,
+                  ),
+              onSpeakEnglish: canSpeakEnglish
+                  ? () => ref.read(speechControllerProvider.notifier).toggle(
+                        hadith.id,
+                        hadith.englishText ?? '',
+                        languageCode: kEnglishSpeechLanguage,
+                      )
+                  : null,
+              isSpeakingEnglish: speaking ==
+                  SpokenUtterance(
+                    hadithId: hadith.id,
+                    languageCode: kEnglishSpeechLanguage,
+                  ),
+              isFavourite: isFavourite,
+              onToggleFavourite: () => ref
+                  .read(favouritesControllerProvider.notifier)
+                  .toggle(hadith),
+            ),
           ),
+          // Nothing to look at: the point past which the whole hadith, citation
+          // included, has been on screen.
+          SizedBox(key: endOfHadithKey, height: AppSpacing.xxl),
+          ReadingProgressBar(
+            read: progress.totalRead,
+            total: progress.totalHadith,
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          _ReadingActions(state: state),
         ],
-        const SizedBox(height: AppSpacing.xl),
-        // A gentle cross-fade when the hadith changes, keyed so the animation
-        // runs on content change rather than on every rebuild.
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 240),
-          switchInCurve: Curves.easeOut,
-          switchOutCurve: Curves.easeIn,
-          child: HadithView(
-            key: ValueKey<String>(hadith.id),
-            hadith: hadith,
-            languageMode: preferences.languageMode,
-            textScale: preferences.textSize.scale,
-            onSpeakEnglish: canSpeak
-                ? () => ref
-                    .read(speechControllerProvider.notifier)
-                    .toggle(hadith.id, hadith.englishText ?? '')
-                : null,
-            isSpeaking: speakingId == hadith.id,
-            isFavourite: isFavourite,
-            onToggleFavourite: () =>
-                ref.read(favouritesControllerProvider.notifier).toggle(hadith),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xxl),
-        ReadingProgressBar(
-          read: progress.totalRead,
-          total: progress.totalHadith,
-        ),
-        const SizedBox(height: AppSpacing.xl),
-        _ReadingActions(state: state),
-      ],
+      ),
     );
+  }
+
+  /// Minimum flick speed, in logical pixels per second, that counts as a page
+  /// turn. High enough that a slow drag while reading does not move the book.
+  static const double _swipeVelocity = 300;
+
+  /// Turns the page on a flick, the way a book does: left carries the reader
+  /// forward, right goes back.
+  ///
+  /// The buttons remain the primary control — this is an accelerator, and it
+  /// respects exactly the same limits at the ends of the book.
+  void _onSwipe(WidgetRef ref, double velocity) {
+    if (velocity.abs() < _swipeVelocity) return;
+    final TodayController controller =
+        ref.read(todayControllerProvider.notifier);
+    if (velocity < 0) {
+      if (state.hasNext) controller.goToNext();
+    } else {
+      if (state.hasPrevious) controller.goToPrevious();
+    }
   }
 }
 

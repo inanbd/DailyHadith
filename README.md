@@ -44,8 +44,18 @@ That single rule produces the behaviour the product needs:
 | Skipped ahead to 50 and read it | Tomorrow returns to the hadith you skipped |
 | Book finished | A completion state; no wrapping around |
 
-A reminder **firing** never changes progress. Only opening a hadith — from a
-reminder tap or by pressing *Mark as read* — does.
+A reminder **firing** never changes progress. Progress changes only when the
+reader actually reads:
+
+- pressing *Mark as read*,
+- opening a hadith from a reminder tap,
+- or **reading one through**: once the end of the hadith has been on screen for
+  5 seconds (`TodayScreen.dwell`), it marks itself. A hadith scrolled past on
+  the way to *Next* is not marked, and a reader who marks one back as unread is
+  never overruled — auto-marking happens at most once per hadith.
+
+Moving between hadith is browsing, not reading: the arrows, and a horizontal
+swipe on the reading surface, change position without marking anything.
 
 A "period" is the interval between reminders, so a weekly reader advances weekly
 and a daily reader advances daily. With reminders switched off it falls back to a
@@ -155,14 +165,16 @@ lib/
     content/    Asset-backed content source (the swappable seam)
     local/      SQLite database, DAOs, preferences store
     models/     JSON → entity parsing
-    notifications/  flutter_local_notifications adapter
+    notifications/  flutter_local_notifications adapter, battery-optimisation
+                    and system-settings channel
     repositories/   Repository implementations
   domain/
     entities/     Collections, hadith, progress, preferences
     repositories/ Abstract contracts
     services/     Reminder maths and the reading rule (pure Dart)
   features/
-    onboarding/ today/ library/ progress/ settings/ shell/ splash/
+    onboarding/ library/ progress/ settings/ shell/ splash/
+    today/      Reading surface, chapters sheet, auto-marking, swipe
   shared/
     theme/      Colours, typography, spacing, ThemeData
     widgets/    Reusable components
@@ -203,9 +215,26 @@ Some deliberate choices:
 
 ## Notifications
 
-- **Permission is never requested at launch.** The OS prompt is raised at the end
-  of onboarding, after the reader has picked a time — or when they turn
-  reminders on in settings.
+- **Permission is never requested at launch.** The OS prompts are raised at the
+  end of onboarding, after the reader has picked a time — or when they turn
+  reminders on in settings. Both go through
+  [`ReminderPermissionFlow`](lib/features/settings/reminder_permission_flow.dart).
+- **Three things have to be allowed**, tracked separately by
+  [`ReminderReadiness`](lib/domain/entities/reminder_readiness.dart), because
+  "arrives two hours late" and "never arrives" are different problems with
+  different fixes:
+  - *Notifications* — without it nothing arrives. Asked for with the OS's own
+    dialog. Once refused, Android stops showing that dialog, so the settings
+    screen offers a way into system settings instead.
+  - *Exact timing* (`SCHEDULE_EXACT_ALARM`) — without it Android may hold a
+    reminder until the device next wakes, which under Doze can be hours.
+  - *Unrestricted battery use* — without it the phone can put the app to sleep
+    and drop its pending alarms. Raised through the `MainActivity` method
+    channel, which `flutter_local_notifications` does not cover.
+- **Declining never breaks anything.** Reminders still switch on; they are armed
+  as inexact alarms instead, and the *Delivery* section of notification settings
+  keeps the fix on offer. Granting one later re-arms the reminders, so the more
+  accurate mode actually takes effect.
 - **Times are wall-clock.** 8:00 AM is resolved against the device's *current*
   timezone every time reminders are armed, so travel and daylight-saving
   changes are handled without the reader doing anything.
@@ -217,8 +246,10 @@ Some deliberate choices:
   covers timezone changes and frequency edits.
 - **Changing any setting cancels everything and re-arms**, so a stale reminder
   can never survive a frequency change.
-- **Inexact alarms** are used on Android. They suit a gentle daily prompt and
-  need no `SCHEDULE_EXACT_ALARM` permission on Android 12+.
+- **Exact alarms where the OS allows them, inexact where it does not.** The mode
+  is chosen at the moment reminders are armed, from what the platform reports it
+  currently permits, and the exact path falls back rather than throwing if the
+  permission is withdrawn in between.
 - **The notification never contains the hadith** — only an invitation to open
   the app. Tapping it deep-links to the reader's current position in that
   collection.
@@ -227,6 +258,12 @@ Android needs core library desugaring for the notification plugin; it is already
 configured in `android/app/build.gradle.kts`, along with ProGuard rules that
 keep the plugin's models so reminders survive R8.
 
+`flutter_local_notifications` stopped declaring its own broadcast receivers at
+version 16, so `android/app/src/main/AndroidManifest.xml` declares them: without
+`ScheduledNotificationReceiver` an alarm fires and nothing posts the
+notification, and without `ScheduledNotificationBootReceiver` reminders do not
+come back after a restart or an app update.
+
 ## Testing
 
 ```bash
@@ -234,11 +271,13 @@ flutter analyze     # lib, test and tool must be clean
 flutter test
 ```
 
-78 tests cover the reminder cadences and period boundaries, the reading rule
+121 tests cover the reminder cadences and period boundaries, the reading rule
 (including missed days and skipping ahead), the SQLite progress layer, JSON
 parsing and error states, the repository install path, the reading surface in
-each language mode, notification scheduling and permission handling, and the
-full first-run journey end to end.
+each language mode, reading aloud in both Arabic and English, auto-marking and
+its guard rails, swipe navigation, chapter browsing (including books that have
+no chapter data), notification scheduling and permission handling, and the full
+first-run journey end to end.
 
 `test/features/main_journey_test.dart` runs the exact scenario the product is
 built around: install → Riyad as-Salihin → Arabic + English → daily at 8:00 AM →
@@ -284,9 +323,11 @@ the app is in the foreground and lets taps reach Dart.
 ## Privacy
 
 No account, no analytics, no advertising SDK, no location or contacts access.
-Reading progress and preferences stay in local storage on the device. The one
-permission the app asks for is notifications, and only after the reader has
-chosen a reminder time.
+Reading progress and preferences stay in local storage on the device. Every
+permission the app asks for serves reminders — notifications, exact alarms, and
+an exemption from battery optimisation — and none is requested until the reader
+has chosen a reminder time. Declining any of them costs punctuality, nothing
+else.
 
 ## Licences
 

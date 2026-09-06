@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -157,23 +158,32 @@ class NotificationPreferencesController
   }
 
   /// Re-arms the OS reminders from the current preferences and current book.
+  ///
+  /// Never throws. Reminders are an accessory to reading, and the platform can
+  /// refuse to arm one for reasons outside the app's control — a permission
+  /// withdrawn mid-call, an OEM alarm quota. A settings screen that threw on
+  /// the way out would be a worse outcome than a reminder that did not arm.
   Future<void> applyToScheduler() async {
-    final NotificationScheduler scheduler =
-        ref.read(notificationSchedulerProvider);
-    final String? collectionId =
-        ref.read(userPreferencesProvider).currentCollectionId;
-    String? title;
-    if (collectionId != null) {
-      final HadithCollection? collection =
-          await ref.read(hadithRepositoryProvider).collection(collectionId);
-      title = collection?.titleEnglish;
+    try {
+      final NotificationScheduler scheduler =
+          ref.read(notificationSchedulerProvider);
+      final String? collectionId =
+          ref.read(userPreferencesProvider).currentCollectionId;
+      String? title;
+      if (collectionId != null) {
+        final HadithCollection? collection =
+            await ref.read(hadithRepositoryProvider).collection(collectionId);
+        title = collection?.titleEnglish;
+      }
+      await scheduler.reschedule(
+        preferences: state,
+        collectionId: collectionId,
+        collectionTitle: title,
+      );
+    } on Object catch (error, stack) {
+      debugPrint('Daily Hadith: could not arm reminders: $error\n$stack');
     }
-    await scheduler.reschedule(
-      preferences: state,
-      collectionId: collectionId,
-      collectionTitle: title,
-    );
-    ref.invalidate(notificationPermissionProvider);
+    ref.invalidate(reminderReadinessProvider);
   }
 }
 
@@ -183,10 +193,12 @@ final NotifierProvider<NotificationPreferencesController,
   NotificationPreferencesController.new,
 );
 
-/// Whether the OS currently allows notifications. Re-read whenever the app
-/// resumes, because the reader may have changed it in system settings.
-final FutureProvider<NotificationPermissionStatus>
-    notificationPermissionProvider =
-    FutureProvider<NotificationPermissionStatus>(
-  (Ref ref) => ref.watch(notificationSchedulerProvider).permissionStatus(),
+/// What the operating system currently allows reminders to do — arrive at
+/// all, arrive on the minute, survive the phone putting the app to sleep.
+///
+/// Re-read whenever the app resumes, because the reader may have changed any
+/// of it in system settings while the app was in the background.
+final FutureProvider<ReminderReadiness> reminderReadinessProvider =
+    FutureProvider<ReminderReadiness>(
+  (Ref ref) => ref.watch(notificationSchedulerProvider).readiness(),
 );

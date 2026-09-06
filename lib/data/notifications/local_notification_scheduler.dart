@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
@@ -11,6 +12,7 @@ import '../../domain/entities/enums.dart';
 import '../../domain/entities/notification_preferences.dart';
 import '../../domain/repositories/notification_scheduler.dart';
 import '../../domain/services/reminder_schedule.dart';
+import 'device_power_settings.dart';
 
 /// Handles a notification tapped while the app was terminated or in the
 /// background. Must be a top-level function so the platform can find it.
@@ -33,11 +35,23 @@ void notificationBackgroundHandler(NotificationResponse response) {
 /// notifications, which survive reboots and app updates without the app
 /// running. Every-other-day has no repeating equivalent, so a rolling window of
 /// concrete occurrences is armed instead and topped up on each app start.
+///
+/// ## How reminders stay punctual
+///
+/// Android only guarantees a reminder lands at the chosen minute when the app
+/// is allowed to schedule *exact* alarms. Without that permission the OS may
+/// hold it back until the device next wakes, which under Doze can be hours. So
+/// every reschedule asks the platform what it is currently allowed to do and
+/// picks the most accurate mode available, rather than assuming one. Losing the
+/// permission downgrades a reminder; it never cancels it.
 class LocalNotificationScheduler implements NotificationScheduler {
-  LocalNotificationScheduler({FlutterLocalNotificationsPlugin? plugin})
-      : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+  LocalNotificationScheduler({
+    FlutterLocalNotificationsPlugin? plugin,
+    this._power = const DevicePowerSettings(),
+  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
   final FlutterLocalNotificationsPlugin _plugin;
+  final DevicePowerSettings _power;
   final StreamController<HadithDeepLink> _deepLinks =
       StreamController<HadithDeepLink>.broadcast();
 
@@ -52,7 +66,7 @@ class LocalNotificationScheduler implements NotificationScheduler {
   /// Id of the single repeating daily reminder.
   static const int _dailyId = 1000;
 
-  /// Weekly / selected-day reminders occupy 1001–1007 (one per ISO weekday).
+  /// Weekly / selected-day reminders occupy 1001-1007 (one per ISO weekday).
   static const int _weekdayIdBase = 1000;
 
   /// Every-other-day occurrences occupy 1100 upwards.
@@ -88,20 +102,25 @@ class LocalNotificationScheduler implements NotificationScheduler {
       onDidReceiveBackgroundNotificationResponse: notificationBackgroundHandler,
     );
 
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(
-          const AndroidNotificationChannel(
-            channelId,
-            channelName,
-            description: channelDescription,
-            importance: Importance.defaultImportance,
-          ),
-        );
+    await _android?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        channelId,
+        channelName,
+        description: channelDescription,
+        importance: Importance.defaultImportance,
+      ),
+    );
 
     _initialized = true;
   }
+
+  AndroidFlutterLocalNotificationsPlugin? get _android =>
+      _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+
+  IOSFlutterLocalNotificationsPlugin? get _ios =>
+      _plugin.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
 
   /// Loads the timezone database and points it at the device's zone.
   ///
@@ -125,55 +144,88 @@ class LocalNotificationScheduler implements NotificationScheduler {
   }
 
   @override
-  Future<NotificationPermissionStatus> permissionStatus() async {
+  Future<ReminderReadiness> readiness() async {
     await initialize();
 
-    final AndroidFlutterLocalNotificationsPlugin? android = _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final AndroidFlutterLocalNotificationsPlugin? android = _android;
     if (android != null) {
-      final bool? enabled = await android.areNotificationsEnabled();
-      if (enabled == null) return NotificationPermissionStatus.notDetermined;
-      return enabled
-          ? NotificationPermissionStatus.granted
-          : NotificationPermissionStatus.denied;
+      // Android cannot distinguish "never asked" from "refused" — both read as
+      // not enabled. Reporting `denied` is the honest summary, and the UI still
+      // asks first, falling back to system settings only once a prompt has
+      // actually come back empty-handed.
+      return ReminderReadiness(
+        notifications: _statusOf(await android.areNotificationsEnabled()),
+        exactTiming: _statusOf(await android.canScheduleExactNotifications()),
+        background: _statusOf(await _power.isExemptFromBatteryOptimisation()),
+      );
     }
 
-    final IOSFlutterLocalNotificationsPlugin? ios = _plugin
-        .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>();
+    final IOSFlutterLocalNotificationsPlugin? ios = _ios;
     if (ios != null) {
       final NotificationsEnabledOptions? options = await ios.checkPermissions();
-      if (options == null) return NotificationPermissionStatus.notDetermined;
-      return options.isEnabled
-          ? NotificationPermissionStatus.granted
-          : NotificationPermissionStatus.denied;
+      return ReminderReadiness(
+        notifications: options == null
+            ? NotificationPermissionStatus.notDetermined
+            : _statusOf(options.isEnabled),
+        // iOS schedules and delivers reminders itself: there is no alarm
+        // permission and no battery exemption to ask for.
+        exactTiming: NotificationPermissionStatus.unsupported,
+        background: NotificationPermissionStatus.unsupported,
+      );
     }
 
-    return NotificationPermissionStatus.unsupported;
+    return ReminderReadiness.unsupported;
+  }
+
+  /// A platform answer of yes, no, or "cannot say" as a status. Cannot say
+  /// means the OS has no such control, so there is nothing to prompt for.
+  static NotificationPermissionStatus _statusOf(bool? allowed) {
+    if (allowed == null) return NotificationPermissionStatus.unsupported;
+    return allowed
+        ? NotificationPermissionStatus.granted
+        : NotificationPermissionStatus.denied;
   }
 
   @override
-  Future<bool> requestPermission() async {
+  Future<bool> request(ReminderRequirement requirement) async {
     await initialize();
 
-    final AndroidFlutterLocalNotificationsPlugin? android = _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-    if (android != null) {
-      return await android.requestNotificationsPermission() ?? false;
-    }
+    switch (requirement) {
+      case ReminderRequirement.notifications:
+        final AndroidFlutterLocalNotificationsPlugin? android = _android;
+        if (android != null) {
+          return await android.requestNotificationsPermission() ?? false;
+        }
+        final IOSFlutterLocalNotificationsPlugin? ios = _ios;
+        if (ios != null) {
+          return await ios.requestPermissions(
+                alert: true,
+                badge: true,
+                sound: true,
+              ) ??
+              false;
+        }
+        return false;
 
-    final IOSFlutterLocalNotificationsPlugin? ios = _plugin
-        .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>();
-    if (ios != null) {
-      return await ios.requestPermissions(alert: true, badge: true, sound: true) ??
-          false;
-    }
+      case ReminderRequirement.exactTiming:
+        // Sends the reader to the system's "Alarms & reminders" screen and
+        // reports what they chose on the way back.
+        final AndroidFlutterLocalNotificationsPlugin? android = _android;
+        if (android != null) {
+          return await android.requestExactAlarmsPermission() ?? false;
+        }
+        // Nothing to ask for: already as punctual as the platform allows.
+        return true;
 
-    return false;
+      case ReminderRequirement.background:
+        if (_android == null) return true;
+        return _power.requestBatteryOptimisationExemption();
+    }
   }
+
+  @override
+  Future<bool> openSystemNotificationSettings() =>
+      _power.openNotificationSettings();
 
   @override
   Future<void> cancelAll() async {
@@ -197,7 +249,16 @@ class LocalNotificationScheduler implements NotificationScheduler {
     await _plugin.cancelAll();
 
     if (!preferences.enabled) return;
-    if (await permissionStatus() != NotificationPermissionStatus.granted) return;
+
+    final ReminderReadiness current = await readiness();
+    if (current.isBlocked) return;
+
+    // Exact where the OS allows it, approximate where it does not. Both survive
+    // Doze; only the exact one promises the minute the reader chose.
+    final AndroidScheduleMode mode =
+        current.exactTiming == NotificationPermissionStatus.granted
+            ? AndroidScheduleMode.exactAllowWhileIdle
+            : AndroidScheduleMode.inexactAllowWhileIdle;
 
     const String title = 'Today’s Hadith';
     final String body = collectionTitle == null
@@ -214,19 +275,20 @@ class LocalNotificationScheduler implements NotificationScheduler {
           id: _dailyId,
           first: _nextInstanceOfTime(preferences.time),
           match: DateTimeComponents.time,
+          mode: mode,
           title: title,
           body: body,
           payload: payload,
         );
       case NotificationFrequency.selectedDays:
       case NotificationFrequency.weekly:
-        final Set<int> weekdays =
-            ReminderSchedule(preferences).activeWeekdays;
+        final Set<int> weekdays = ReminderSchedule(preferences).activeWeekdays;
         for (final int weekday in weekdays) {
           await _scheduleRepeating(
             id: _weekdayIdBase + weekday,
             first: _nextInstanceOfWeekday(weekday, preferences.time),
             match: DateTimeComponents.dayOfWeekAndTime,
+            mode: mode,
             title: title,
             body: body,
             payload: payload,
@@ -242,6 +304,7 @@ class LocalNotificationScheduler implements NotificationScheduler {
             id: _intervalIdBase + index,
             first: _toTz(occurrences[index]),
             match: null,
+            mode: mode,
             title: title,
             body: body,
             payload: payload,
@@ -254,38 +317,57 @@ class LocalNotificationScheduler implements NotificationScheduler {
     required int id,
     required tz.TZDateTime first,
     required DateTimeComponents? match,
+    required AndroidScheduleMode mode,
     required String title,
     required String body,
     required String payload,
   }) async {
-    await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      first,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          channelId,
-          channelName,
-          channelDescription: channelDescription,
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
-          // The hadith itself is never put in the notification — the reminder
-          // only invites the reader to open the app.
-          styleInformation: DefaultStyleInformation(false, false),
+    try {
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        first,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            channelId,
+            channelName,
+            channelDescription: channelDescription,
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
+            // The hadith itself is never put in the notification — the reminder
+            // only invites the reader to open the app.
+            styleInformation: DefaultStyleInformation(false, false),
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: false,
+            presentSound: true,
+          ),
         ),
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: false,
-          presentSound: true,
-        ),
-      ),
-      // Inexact alarms are the right fit for a gentle reading reminder and,
-      // unlike exact alarms, need no special permission on Android 12+.
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      payload: payload,
-      matchDateTimeComponents: match,
-    );
+        androidScheduleMode: mode,
+        payload: payload,
+        matchDateTimeComponents: match,
+      );
+    } on PlatformException catch (error) {
+      // The exact-alarm permission can be withdrawn between the check above and
+      // the call itself, and Android throws rather than quietly downgrading. An
+      // approximate reminder is worth far more than none.
+      if (mode != AndroidScheduleMode.exactAllowWhileIdle) rethrow;
+      debugPrint(
+        'Daily Hadith: exact alarm refused (${error.code}); '
+        'falling back to an approximate reminder.',
+      );
+      await _scheduleRepeating(
+        id: id,
+        first: first,
+        match: match,
+        mode: AndroidScheduleMode.inexactAllowWhileIdle,
+        title: title,
+        body: body,
+        payload: payload,
+      );
+    }
   }
 
   @override

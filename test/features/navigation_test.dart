@@ -10,6 +10,7 @@ import 'package:daily_hadith/features/settings/language_settings_screen.dart';
 import 'package:daily_hadith/features/settings/notification_settings_screen.dart';
 import 'package:daily_hadith/features/settings/settings_screen.dart';
 import 'package:daily_hadith/features/today/today_screen.dart';
+import 'package:daily_hadith/shared/widgets/hadith_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -169,5 +170,48 @@ void main() {
 
     await go(tester, harness, Routes.library);
     expect(find.text('Development data'), findsWidgets);
+  });
+
+  testWidgets('swiping turns the page, the way a book does',
+      (WidgetTester tester) async {
+    final TestHarness harness = await TestHarness.create(
+      initialPreferences: onboarded(),
+    );
+    await harness.pumpApp(tester);
+
+    expect(find.text('Hadith 1'), findsOneWidget);
+
+    // Swiping right at the start of the book has nowhere to go.
+    await tester.fling(find.byType(HadithView), const Offset(400, 0), 1200);
+    await harness.settle(tester);
+    expect(find.text('Hadith 1'), findsOneWidget);
+
+    // Left carries the reader forward.
+    await tester.fling(find.byType(HadithView), const Offset(-400, 0), 1200);
+    await harness.settle(tester);
+    expect(find.text('Hadith 2'), findsOneWidget);
+
+    // Right takes them back.
+    await tester.fling(find.byType(HadithView), const Offset(400, 0), 1200);
+    await harness.settle(tester);
+    expect(find.text('Hadith 1'), findsOneWidget);
+  });
+
+  testWidgets('a slow horizontal drag while reading does not turn the page',
+      (WidgetTester tester) async {
+    final TestHarness harness = await TestHarness.create(
+      initialPreferences: onboarded(),
+    );
+    await harness.pumpApp(tester);
+
+    // Far enough to move a page, but far too slow to be a flick.
+    await tester.timedDrag(
+      find.byType(HadithView),
+      const Offset(-400, 0),
+      const Duration(seconds: 4),
+    );
+    await harness.settle(tester);
+
+    expect(find.text('Hadith 1'), findsOneWidget);
   });
 }

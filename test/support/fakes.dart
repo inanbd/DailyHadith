@@ -25,6 +25,7 @@ class FakeContentSource implements HadithContentSource {
     String title = 'Test Collection',
     int count = 10,
     ContentVerification verification = ContentVerification.verified,
+    String Function(int ordinal)? englishText,
   }) {
     final HadithCollection collection = HadithCollection(
       id: id,
@@ -50,7 +51,7 @@ class FakeContentSource implements HadithContentSource {
               chapterNumber: 1,
               chapterEnglish: 'Test chapter',
               arabicText: 'نص عربي رقم $i',
-              englishText: 'English text number $i.',
+              englishText: englishText?.call(i) ?? 'English text number $i.',
               narrator: 'Test narrator',
               reference: '$title $i',
             ),
@@ -90,29 +91,78 @@ class FakeContentSource implements HadithContentSource {
 class FakeNotificationScheduler implements NotificationScheduler {
   FakeNotificationScheduler({
     this.status = NotificationPermissionStatus.granted,
+    this.otherRequirements = allSatisfied,
+    this.grantsOnRequest = true,
     this.launchDeepLink,
   });
 
+  /// A platform with nothing to ask for beyond notification permission, which
+  /// is all most tests care about.
+  static const ReminderReadiness allSatisfied = ReminderReadiness(
+    notifications: NotificationPermissionStatus.granted,
+    exactTiming: NotificationPermissionStatus.unsupported,
+    background: NotificationPermissionStatus.unsupported,
+  );
+
+  /// An Android-shaped platform where punctuality still has to be asked for.
+  static const ReminderReadiness androidUnasked = ReminderReadiness(
+    notifications: NotificationPermissionStatus.granted,
+    exactTiming: NotificationPermissionStatus.denied,
+    background: NotificationPermissionStatus.denied,
+  );
+
+  /// Notification permission, as the shorthand most tests care about.
   NotificationPermissionStatus status;
+
+  /// Whether a prompt is answered yes. False stands in for a reader who
+  /// declines, or an OS that has stopped showing the prompt at all.
+  bool grantsOnRequest;
+
   HadithDeepLink? launchDeepLink;
+
+  /// Everything except notification permission, which [status] owns.
+  ReminderReadiness otherRequirements;
 
   final List<NotificationPreferences> scheduledPreferences =
       <NotificationPreferences>[];
   final List<String?> scheduledCollectionIds = <String?>[];
+  final List<ReminderRequirement> requested = <ReminderRequirement>[];
   int cancelAllCalls = 0;
-  int permissionRequests = 0;
+  int settingsOpened = 0;
   bool initialized = false;
+
+  /// How many times the OS notification prompt was raised.
+  int get permissionRequests => requested
+      .where((ReminderRequirement it) => it == ReminderRequirement.notifications)
+      .length;
 
   @override
   Future<void> initialize() async => initialized = true;
 
   @override
-  Future<NotificationPermissionStatus> permissionStatus() async => status;
+  Future<ReminderReadiness> readiness() async =>
+      otherRequirements.copyWith(notifications: status);
 
   @override
-  Future<bool> requestPermission() async {
-    permissionRequests++;
-    status = NotificationPermissionStatus.granted;
+  Future<bool> request(ReminderRequirement requirement) async {
+    requested.add(requirement);
+    if (!grantsOnRequest) return false;
+    switch (requirement) {
+      case ReminderRequirement.notifications:
+        status = NotificationPermissionStatus.granted;
+      case ReminderRequirement.exactTiming:
+        otherRequirements = otherRequirements
+            .copyWith(exactTiming: NotificationPermissionStatus.granted);
+      case ReminderRequirement.background:
+        otherRequirements = otherRequirements
+            .copyWith(background: NotificationPermissionStatus.granted);
+    }
+    return true;
+  }
+
+  @override
+  Future<bool> openSystemNotificationSettings() async {
+    settingsOpened++;
     return true;
   }
 
@@ -167,11 +217,16 @@ class MapAssetBundle extends CachingAssetBundle {
 class FakeSpeechSynthesizer implements SpeechSynthesizer {
   FakeSpeechSynthesizer({
     this.available = true,
+    this.unavailableLanguages = const <String>{},
     this.completeManually = false,
   });
 
-  /// Whether the device claims a voice for the requested language.
+  /// Whether the device claims any voice at all.
   bool available;
+
+  /// Languages this device specifically lacks, for the common real case of an
+  /// English voice installed and an Arabic one not.
+  Set<String> unavailableLanguages;
 
   /// When true, [speak] does not complete until [finish] is called.
   bool completeManually;
@@ -184,7 +239,8 @@ class FakeSpeechSynthesizer implements SpeechSynthesizer {
   Completer<void>? _pending;
 
   @override
-  Future<bool> isLanguageAvailable(String languageCode) async => available;
+  Future<bool> isLanguageAvailable(String languageCode) async =>
+      available && !unavailableLanguages.contains(languageCode);
 
   @override
   Future<void> speak(String text, {required String languageCode}) async {

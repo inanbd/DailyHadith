@@ -9,7 +9,6 @@ import '../../core/utils/formatting.dart';
 import '../../domain/entities/enums.dart';
 import '../../domain/entities/hadith_collection.dart';
 import '../../domain/entities/notification_preferences.dart';
-import '../../domain/repositories/notification_scheduler.dart';
 import '../../features/today/today_controller.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_spacing.dart';
@@ -18,6 +17,7 @@ import '../../shared/widgets/app_page.dart';
 import '../../shared/widgets/notice_banner.dart';
 import '../../shared/widgets/settings_group.dart';
 import '../../shared/widgets/state_views.dart';
+import '../settings/reminder_permission_flow.dart';
 import '../settings/settings_labels.dart';
 
 /// Three short steps: why, which book, when.
@@ -121,29 +121,33 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (collectionId == null || _saving) return;
 
     setState(() => _saving = true);
+    // The permission prompts below suspend this method for as long as the
+    // reader takes to answer, and this screen does not necessarily survive
+    // that. Reached through the container, the remaining steps finish either
+    // way.
+    final ProviderContainer container =
+        ProviderScope.containerOf(context, listen: false);
     try {
-      await ref.read(userPreferencesProvider.notifier).update(
-            ref.read(userPreferencesProvider).copyWith(
+      // Language and book now — but deliberately *not* `onboardingComplete`.
+      // That flag is what the router redirects on, so setting it here would
+      // tear this screen down while the OS permission dialog was still sitting
+      // on top of it, and the rest of onboarding would never be saved.
+      await container.read(userPreferencesProvider.notifier).update(
+            container.read(userPreferencesProvider).copyWith(
                   languageMode: _language,
                   currentCollectionId: collectionId,
-                  onboardingComplete: true,
                 ),
           );
 
-      if (_remindersEnabled) {
-        // The permission prompt lands here — after the reader has picked a
-        // time, never on first launch.
-        final NotificationScheduler scheduler =
-            ref.read(notificationSchedulerProvider);
-        final NotificationPermissionStatus status =
-            await scheduler.permissionStatus();
-        if (status == NotificationPermissionStatus.notDetermined) {
-          await scheduler.requestPermission();
-        }
+      if (_remindersEnabled && mounted) {
+        // The permission prompts land here — after the reader has picked a
+        // time, never on first launch. Declining any of them still finishes
+        // onboarding; the notification settings screen offers them again.
+        await ReminderPermissionFlow.run(context);
       }
 
       // Saving notification preferences also arms (or clears) the reminders.
-      await ref.read(notificationPreferencesProvider.notifier).update(
+      await container.read(notificationPreferencesProvider.notifier).update(
             NotificationPreferences(
               enabled: _remindersEnabled,
               frequency: _frequency,
@@ -153,7 +157,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ),
           );
 
-      await ref.read(todayControllerProvider.notifier).refresh();
+      // Last, because it is what sends the reader on to Today.
+      await container.read(userPreferencesProvider.notifier).completeOnboarding();
+      await container.read(todayControllerProvider.notifier).refresh();
       if (mounted) context.go(Routes.today);
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -172,6 +178,22 @@ class _WelcomeStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
+        // The first thing the app says is a greeting, before it says anything
+        // about itself.
+        Text(
+          'السلام عليكم',
+          textAlign: TextAlign.start,
+          style: AppTypography.arabicTitle.copyWith(color: colors.accent),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Assalamu alaikum',
+          style: AppTypography.englishBody.copyWith(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
         Text(
           'Build a consistent habit by reading from a hadith collection at '
           'your own pace.',

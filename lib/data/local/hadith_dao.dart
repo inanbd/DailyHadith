@@ -132,6 +132,29 @@ class HadithDao {
         .toList(growable: false);
   }
 
+  /// The reading position of the first hadith in a chapter, or null when the
+  /// chapter has no hadith stored against it.
+  ///
+  /// Chapter metadata and hadith rows are imported separately, so a chapter can
+  /// legitimately exist with nothing pointing at it; the caller treats that as
+  /// "not navigable" rather than an error.
+  Future<int?> firstOrdinalOfChapter(
+    String collectionId,
+    int chapterNumber,
+  ) async {
+    final Database db = await _database.database;
+    final List<Map<String, Object?>> rows = await db.query(
+      AppDatabase.hadithTable,
+      columns: <String>['ordinal'],
+      where: 'collection_id = ? AND chapter_number = ?',
+      whereArgs: <Object?>[collectionId, chapterNumber],
+      orderBy: 'ordinal ASC',
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return rows.first['ordinal'] as int?;
+  }
+
   Future<void> deleteCollection(String collectionId) async {
     final Database db = await _database.database;
     await db.transaction((Transaction txn) async {

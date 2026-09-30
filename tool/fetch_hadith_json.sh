@@ -31,6 +31,14 @@ shamail_muhammadiyyah|other_books/shamail_muhammadiyah.json|Ash-Shama'il Al-Muha
 bulugh_al_maram|other_books/bulugh_almaram.json|Bulugh al-Maram
 bukhari|the_9_books/bukhari.json|Sahih al-Bukhari
 muslim|the_9_books/muslim.json|Sahih Muslim
+abu_dawud|the_9_books/abudawud.json|Sunan Abi Dawud
+tirmidhi|the_9_books/tirmidhi.json|Jami' at-Tirmidhi
+nasai|the_9_books/nasai.json|Sunan an-Nasa'i
+ibn_majah|the_9_books/ibnmajah.json|Sunan Ibn Majah
+malik|the_9_books/malik.json|Muwatta Malik
+darimi|the_9_books/darimi.json|Sunan ad-Darimi
+qudsi40|forties/qudsi40.json|Forty Hadith Qudsi
+shahwaliullah40|forties/shahwaliullah40.json|Forty Hadith of Shah Waliullah
 "
 
 usage() {

@@ -1,0 +1,422 @@
+{
+  "schemaVersion": 1,
+  "collectionId": "shahwaliullah40",
+  "verification": "verified",
+  "source": {
+    "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+    "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+    "translator": "Sunnah.com translation",
+    "retrievedAt": "2026-09-30T06:51:44.222499Z"
+  },
+  "chapters": [
+    {
+      "chapterNumber": 0,
+      "bookNumber": 12,
+      "titleEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "titleArabic": "أربعون شاه ولي الله الدهلوي",
+      "hadithCount": 40
+    }
+  ],
+  "hadith": [
+    {
+      "hadithNumber": "1",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "لَیْسَ الْخَبَرُ کَالْمُعَایَنَةِ",
+      "english": "The report is not like witnessing.",
+      "reference": "Forty Hadith of Shah Waliullah 1"
+    },
+    {
+      "hadithNumber": "2",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْحَرْبُ خُدَعَةٌ",
+      "english": "War is deception.",
+      "reference": "Forty Hadith of Shah Waliullah 2"
+    },
+    {
+      "hadithNumber": "3",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْمُسْلِمُ مِرْآةُ الْمُسْلِمِ",
+      "english": "A Muslim is a mirror of the Muslim.",
+      "reference": "Forty Hadith of Shah Waliullah 3"
+    },
+    {
+      "hadithNumber": "4",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْمُسْتَشَارُ مُؤتَمَنٌ",
+      "english": "Someone whose advice is sought is in a position of trust.",
+      "reference": "Forty Hadith of Shah Waliullah 4"
+    },
+    {
+      "hadithNumber": "5",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الدَّالُّ عَلَی الْخَیْرِ کَفَاعِلِهِ",
+      "english": "The person guiding (someone) to do a good deed, is like the one performing the good deed.",
+      "reference": "Forty Hadith of Shah Waliullah 5"
+    },
+    {
+      "hadithNumber": "6",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "إِسْتَعِیْنُوْا عَلَی الْحَوَائِجِ بِالْکِتْمَانِ",
+      "english": "Seek help for any needs discreetly.",
+      "reference": "Forty Hadith of Shah Waliullah 6"
+    },
+    {
+      "hadithNumber": "7",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "إِتَّقُوْا النَّارَ وَلَوْ بِشِقِّ تَمْرَةٍ",
+      "english": "Protect yourself from the fire even with a part of a date.",
+      "reference": "Forty Hadith of Shah Waliullah 7"
+    },
+    {
+      "hadithNumber": "8",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الدُّنْیَا سِجْنُ الْمُؤمِنِ وَ جَنَّةُ الْکَافِرِ",
+      "english": "The world is the believer’s prison and the disbeliever’s paradise.",
+      "reference": "Forty Hadith of Shah Waliullah 8"
+    },
+    {
+      "hadithNumber": "9",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْحَیَاءُ خَیْرٌ کُلُّهُ",
+      "english": "Modesty is entirely good.",
+      "reference": "Forty Hadith of Shah Waliullah 9"
+    },
+    {
+      "hadithNumber": "10",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "عِدَةُ الْمُؤمِنِ کَاَخْذِ الْکَفِّ",
+      "english": "The word of the believer is like seizing of the hand.",
+      "reference": "Forty Hadith of Shah Waliullah 10"
+    },
+    {
+      "hadithNumber": "11",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "لَا یَحِلُّ لِمُؤمِنٍ اَنْ یَّجُهْرَ أخَاهُ فَوقَ ثَلَاثَةِ أیَّامٍ",
+      "english": "It is unlawful for a believer to sever relations with his brother for more than three days.",
+      "reference": "Forty Hadith of Shah Waliullah 11"
+    },
+    {
+      "hadithNumber": "12",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "لَیْسَ مِنَّا مَنْ غَشَّنَا",
+      "english": "He is not one of us who cheats us.",
+      "reference": "Forty Hadith of Shah Waliullah 12"
+    },
+    {
+      "hadithNumber": "13",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "مَا قَلَّ وَكَفَى خَيْرٌ مِمَّا كَثُرَ وَأَلْهَى",
+      "english": "A little that suffices is better than an abundance that distracts.",
+      "reference": "Forty Hadith of Shah Waliullah 13"
+    },
+    {
+      "hadithNumber": "14",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الرَّاجِعُ فِيْ هِبَتِهِ کَالرَّاجِعِ فِيْ قَیْئِهِ",
+      "english": "Someone who takes back his gift is like someone who eats his vomit.",
+      "reference": "Forty Hadith of Shah Waliullah 14"
+    },
+    {
+      "hadithNumber": "15",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْبَلَاءُ مُوَکِّلٌ بِالْمَنْطِقِ",
+      "english": "Affliction comes from (loose) talk.",
+      "reference": "Forty Hadith of Shah Waliullah 15"
+    },
+    {
+      "hadithNumber": "16",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "النَّاسُ کَأسْنَانِ الْمُشْطِ",
+      "english": "People are like the teeth of a comb.",
+      "reference": "Forty Hadith of Shah Waliullah 16"
+    },
+    {
+      "hadithNumber": "17",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْغِنَى غِنَى النَّفْسِ",
+      "english": "Richness lies in the richness of the soul.",
+      "reference": "Forty Hadith of Shah Waliullah 17"
+    },
+    {
+      "hadithNumber": "18",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْسَّعِیْدُ مَنْ وُّعِظَ بِغَیْرِهِ",
+      "english": "The felicitous person takes lessons from (the actions of) others.",
+      "reference": "Forty Hadith of Shah Waliullah 18"
+    },
+    {
+      "hadithNumber": "19",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "وَ إِنَّ مِنَ الشِّعْرِ لَحِکْمَةً وَاِنَّ مِنَ الْبَیَانِ لَسِحْرًا",
+      "english": "Indeed, in poetry there is wisdom and in eloquence there is magic.",
+      "reference": "Forty Hadith of Shah Waliullah 19"
+    },
+    {
+      "hadithNumber": "20",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "عَفْوُ الْمُلُوْكِ إِبْقَاءٌ لِلْمُلْكِ",
+      "english": "The king’s pardon preserves the kingdom.",
+      "reference": "Forty Hadith of Shah Waliullah 20"
+    },
+    {
+      "hadithNumber": "21",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "اَلْمَرْءُ مَعَ مَنْ أَحَبَّ",
+      "english": "A man will be with whom he loves.",
+      "reference": "Forty Hadith of Shah Waliullah 21"
+    },
+    {
+      "hadithNumber": "22",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "مَا هَلَكَ إمْرُؤٌ عَرَفَ قَدْرَهُ",
+      "english": "A man who knows his worth will not be ruined.",
+      "reference": "Forty Hadith of Shah Waliullah 22"
+    },
+    {
+      "hadithNumber": "23",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "اَلْوَلَدُ لِلْفِرَاشِ وَ لِلْعَاهِرِ الْحَجَرُ",
+      "english": "The child belongs to the bed and stoning is for the adulterer.",
+      "reference": "Forty Hadith of Shah Waliullah 23"
+    },
+    {
+      "hadithNumber": "24",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْیَدُ الْعُلْیَا خَیْرٌ مِّنَ الْیَدِ السُّفْلَی",
+      "english": "The upper hand is superior to the lower hand.",
+      "reference": "Forty Hadith of Shah Waliullah 24"
+    },
+    {
+      "hadithNumber": "25",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "لَا شَکَرَ اللهَ مَنْ لَّا یَشْکُرُ النَّاسَ",
+      "english": "He does not thank Allah who does not thank people.",
+      "reference": "Forty Hadith of Shah Waliullah 25"
+    },
+    {
+      "hadithNumber": "26",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "حُبُّكَ الشَّيْءَ یُعْمِيْ وَ یُصِمُّ",
+      "english": "Your love of something can blind and deafen (you).",
+      "reference": "Forty Hadith of Shah Waliullah 26"
+    },
+    {
+      "hadithNumber": "27",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "جُبِلَتِ الْقُلُوبُ عَلی حُبَّ مَنْ اَحْسَنَ اِلَیْهَا وَ بُغْضِ مَنْ اَسَاءَ اِلَیْهَا",
+      "english": "Hearts are predisposed to love someone who does them good and detest someone who does them harm.",
+      "reference": "Forty Hadith of Shah Waliullah 27"
+    },
+    {
+      "hadithNumber": "28",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْتَّائِبُ مِنَ الذَّنْبِ کَمَنْ لَا ذَنْبَ لَهُ",
+      "english": "One who repents from sin is like someone without sin.",
+      "reference": "Forty Hadith of Shah Waliullah 28"
+    },
+    {
+      "hadithNumber": "29",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الشَّاهِدُ یَرَی مَا لَا یَرَاهُ الْغَائِبُ",
+      "english": "The person who actually witnesses an (event) sees that which one who is absent does not.",
+      "reference": "Forty Hadith of Shah Waliullah 29"
+    },
+    {
+      "hadithNumber": "30",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "اِذا جَاءَکُمْ کَرِیْمُ قَوْمٍ فَاَکْرِمُوهُ",
+      "english": "If the nobleman of a people comes to you, honour him.",
+      "reference": "Forty Hadith of Shah Waliullah 30"
+    },
+    {
+      "hadithNumber": "31",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْیَمِینُ الْفَاجِرَةُ تَدَعُ الدِّیَارَ الْبَلَاقِعَ",
+      "english": "False oaths lay waste to home (lands).",
+      "reference": "Forty Hadith of Shah Waliullah 31"
+    },
+    {
+      "hadithNumber": "32",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "مَنْ قُتِلَ دُونَ مَالِهِ فَهُوَ شَهِیْدٌ",
+      "english": "Whoever is killed attempting to save his property is a martyr.",
+      "reference": "Forty Hadith of Shah Waliullah 32"
+    },
+    {
+      "hadithNumber": "33",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْاَعْمَالُ بِالنِّیَّةِ",
+      "english": "Actions are through intentions.",
+      "reference": "Forty Hadith of Shah Waliullah 33"
+    },
+    {
+      "hadithNumber": "34",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "سَیِّدُ الْقَوْمِ خَادِمُهُمْ",
+      "english": "The leader of a people is their servant.",
+      "reference": "Forty Hadith of Shah Waliullah 34"
+    },
+    {
+      "hadithNumber": "35",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "خَیْرُ الْأُمُوْرِ أَوْسَطُهَا",
+      "english": "The best of affairs is that which is balanced.",
+      "reference": "Forty Hadith of Shah Waliullah 35"
+    },
+    {
+      "hadithNumber": "36",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "اَللَّهُمَّ بَارِكْ فِیْ أُمَّتِیْ فِی بُکُوْرِهَا یَوْمَ الْخَمِیْسِ",
+      "english": "O Allah, bless my nation in its early rising on Thursdays!",
+      "reference": "Forty Hadith of Shah Waliullah 36"
+    },
+    {
+      "hadithNumber": "37",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "کَادَ الْفَقْرُ أَنْ یَکُوْنَ کُفْرًا",
+      "english": "Poverty can almost turn into disbelief.",
+      "reference": "Forty Hadith of Shah Waliullah 37"
+    },
+    {
+      "hadithNumber": "38",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْسَّفَرُ قِطْعَةٌ مِّنَ الْعَذَابِ",
+      "english": "Travelling is a portion of punishment.",
+      "reference": "Forty Hadith of Shah Waliullah 38"
+    },
+    {
+      "hadithNumber": "39",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "خَیْرُ زَّادِ الْتَّقْوَی",
+      "english": "The best of provision is God-Consciousness (taqwa).",
+      "reference": "Forty Hadith of Shah Waliullah 39"
+    },
+    {
+      "hadithNumber": "40",
+      "bookNumber": 12,
+      "chapterNumber": 0,
+      "chapterEnglish": "Forty Hadith of Shah Waliullah Dehlawi",
+      "chapterArabic": "أربعون شاه ولي الله الدهلوي",
+      "arabic": "الْمَجَالِسُ بِالْاَمَانَةِ",
+      "english": "Meetings are under trust.",
+      "reference": "Forty Hadith of Shah Waliullah 40"
+    }
+  ]
+}

@@ -134,6 +134,141 @@
         "translator": "Sunnah.com translation",
         "retrievedAt": "2026-09-05T08:23:26.478897Z"
       }
+    },
+    {
+      "id": "abu_dawud",
+      "slug": "abu_dawud",
+      "titleEnglish": "Sunan Abi Dawud",
+      "titleArabic": "سنن أبي داود",
+      "compiler": "Imam Abu Dawud",
+      "compilerArabic": "الإمام أبو داود السجستاني",
+      "description": "Compiled by Sulayman ibn al-Ash'ath Abu Dawud as-Sijistani (d. 275 AH), with a focus on the hadith that legal rulings are drawn from. One of the six canonical collections.",
+      "totalHadith": 5276,
+      "verification": "verified",
+      "source": {
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "retrievedAt": "2026-09-30T06:51:37.044400Z"
+      }
+    },
+    {
+      "id": "tirmidhi",
+      "slug": "tirmidhi",
+      "titleEnglish": "Jami' at-Tirmidhi",
+      "titleArabic": "جامع الترمذي",
+      "compiler": "Imam at-Tirmidhi",
+      "compilerArabic": "الإمام الترمذي",
+      "description": "Compiled by Abu Isa Muhammad at-Tirmidhi (d. 279 AH), known for noting the grading of each hadith and how the early scholars acted on it. One of the six canonical collections.",
+      "totalHadith": 4053,
+      "verification": "verified",
+      "source": {
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "retrievedAt": "2026-09-30T06:51:38.483555Z"
+      }
+    },
+    {
+      "id": "nasai",
+      "slug": "nasai",
+      "titleEnglish": "Sunan an-Nasa'i",
+      "titleArabic": "سنن النسائي",
+      "compiler": "Imam an-Nasa'i",
+      "compilerArabic": "الإمام النسائي",
+      "description": "Compiled by Ahmad ibn Shu'ayb an-Nasa'i (d. 303 AH) and regarded as having among the strictest standards of the Sunan. One of the six canonical collections.",
+      "totalHadith": 5768,
+      "verification": "verified",
+      "source": {
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "retrievedAt": "2026-09-30T06:51:39.879528Z"
+      }
+    },
+    {
+      "id": "ibn_majah",
+      "slug": "ibn_majah",
+      "titleEnglish": "Sunan Ibn Majah",
+      "titleArabic": "سنن ابن ماجه",
+      "compiler": "Imam Ibn Majah",
+      "compilerArabic": "الإمام ابن ماجه",
+      "description": "Compiled by Muhammad ibn Yazid Ibn Majah al-Qazwini (d. 273 AH), arranged by topic. The sixth of the six canonical collections.",
+      "totalHadith": 4345,
+      "verification": "verified",
+      "source": {
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "retrievedAt": "2026-09-30T06:51:41.220100Z"
+      }
+    },
+    {
+      "id": "malik",
+      "slug": "malik",
+      "titleEnglish": "Muwatta Malik",
+      "titleArabic": "موطأ مالك",
+      "compiler": "Imam Malik ibn Anas",
+      "compilerArabic": "الإمام مالك بن أنس",
+      "description": "The earliest surviving compilation of hadith and legal practice, gathered by Imam Malik ibn Anas (d. 179 AH) in Madinah.",
+      "totalHadith": 1985,
+      "verification": "verified",
+      "source": {
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "retrievedAt": "2026-09-30T06:51:42.318497Z"
+      }
+    },
+    {
+      "id": "darimi",
+      "slug": "darimi",
+      "titleEnglish": "Sunan ad-Darimi",
+      "titleArabic": "سنن الدارمي",
+      "compiler": "Imam ad-Darimi",
+      "compilerArabic": "الإمام الدارمي",
+      "description": "Compiled by Abu Muhammad Abd Allah ad-Darimi (d. 255 AH). This dataset has the Arabic text only, with no English translation.",
+      "totalHadith": 3406,
+      "verification": "verified",
+      "source": {
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "retrievedAt": "2026-09-30T06:51:43.031673Z"
+      }
+    },
+    {
+      "id": "qudsi40",
+      "slug": "qudsi40",
+      "titleEnglish": "Forty Hadith Qudsi",
+      "titleArabic": "الأربعون القدسية",
+      "compiler": "Various compilers",
+      "description": "A selection of forty hadith qudsi — narrations in which the Prophet ﷺ relates words from Allah — gathered from several collections.",
+      "totalHadith": 40,
+      "verification": "verified",
+      "source": {
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "retrievedAt": "2026-09-30T06:51:43.642726Z"
+      }
+    },
+    {
+      "id": "shahwaliullah40",
+      "slug": "shahwaliullah40",
+      "titleEnglish": "Forty Hadith of Shah Waliullah",
+      "titleArabic": "أربعون ولي الله الدهلوي",
+      "compiler": "Shah Waliullah Dehlawi",
+      "compilerArabic": "شاه ولي الله الدهلوي",
+      "description": "Forty short hadith selected by Shah Waliullah Dehlawi (d. 1176 AH), many of them only a line or two long.",
+      "totalHadith": 40,
+      "verification": "verified",
+      "source": {
+        "name": "hadith-json (AhmedBaset), scraped from Sunnah.com",
+        "url": "https://github.com/AhmedBaset/hadith-json/tree/v1.2.0",
+        "translator": "Sunnah.com translation",
+        "retrievedAt": "2026-09-30T06:51:44.222499Z"
+      }
     }
   ]
 }

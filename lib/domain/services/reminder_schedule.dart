@@ -51,8 +51,10 @@ class ReminderSchedule {
     for (int offset = 0; offset <= _searchHorizonDays; offset++) {
       final DateTime day = _addDays(_dateOnly(from), offset);
       if (!occursOn(day)) continue;
-      final DateTime candidate = _at(day, preferences.time);
-      if (candidate.isAfter(from)) return candidate;
+      for (final TimeOfDayValue time in preferences.times) {
+        final DateTime candidate = _at(day, time);
+        if (candidate.isAfter(from)) return candidate;
+      }
     }
     return null;
   }
@@ -76,8 +78,10 @@ class ReminderSchedule {
     for (int offset = 0; offset <= _searchHorizonDays; offset++) {
       final DateTime day = _addDays(_dateOnly(moment), -offset);
       if (!occursOn(day)) continue;
-      final DateTime candidate = _at(day, preferences.time);
-      if (!candidate.isAfter(moment)) return candidate;
+      for (final TimeOfDayValue time in preferences.times.reversed) {
+        final DateTime candidate = _at(day, time);
+        if (!candidate.isAfter(moment)) return candidate;
+      }
     }
     return null;
   }
@@ -85,14 +89,16 @@ class ReminderSchedule {
   /// Start of the reading period containing [now].
   ///
   /// Always returns a value: when the reminder settings themselves never fire,
-  /// the period falls back to a plain daily boundary at the configured time, so
-  /// the reader's book still rolls forward each day with reminders switched off.
+  /// the period falls back to a plain daily boundary at each configured time,
+  /// so the reader's book still rolls forward with reminders switched off.
   DateTime currentPeriodStart(DateTime now) {
     final DateTime? scheduled = mostRecentOccurrenceAtOrBefore(now);
     if (scheduled != null) return scheduled;
-    final DateTime todayAtTime = _at(_dateOnly(now), preferences.time);
-    if (!todayAtTime.isAfter(now)) return todayAtTime;
-    return _at(_addDays(_dateOnly(now), -1), preferences.time);
+    for (final TimeOfDayValue time in preferences.times.reversed) {
+      final DateTime todayAtTime = _at(_dateOnly(now), time);
+      if (!todayAtTime.isAfter(now)) return todayAtTime;
+    }
+    return _at(_addDays(_dateOnly(now), -1), preferences.times.last);
   }
 
   static DateTime _dateOnly(DateTime value) =>

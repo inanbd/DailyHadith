@@ -12,7 +12,7 @@ class AppDatabase {
 
 
   static const String fileName = 'daily_hadith.db';
-  static const int schemaVersion = 2;
+  static const int schemaVersion = 3;
 
   static const String collectionsTable = 'collections';
   static const String hadithTable = 'hadith';
@@ -20,6 +20,7 @@ class AppDatabase {
   static const String progressTable = 'reading_progress';
   static const String readTable = 'read_hadith';
   static const String favouritesTable = 'favourite_hadith';
+  static const String randomPicksTable = 'random_picks';
 
   /// Favourites DDL, run both on a fresh install and by the v1 -> v2 upgrade,
   /// so the two paths cannot drift apart.
@@ -35,6 +36,21 @@ class AppDatabase {
     ''',
     'CREATE INDEX IF NOT EXISTS idx_favourite_saved '
         'ON $favouritesTable (saved_at DESC)',
+  ];
+
+  /// Random picks DDL, shared by a fresh install and the v2 -> v3 upgrade.
+  ///
+  /// One row per reading period: which hadith random mode shows for it. Stored
+  /// rather than recomputed so that the hadith a reminder previewed is the one
+  /// the app opens on, and so that a pick does not change under the reader.
+  static const List<String> _randomPicksDdl = <String>[
+    '''
+      CREATE TABLE IF NOT EXISTS $randomPicksTable (
+        period_start INTEGER PRIMARY KEY,
+        collection_id TEXT NOT NULL,
+        ordinal INTEGER NOT NULL
+      )
+    ''',
   ];
 
   /// Injected in tests to run against an in-memory FFI database.
@@ -75,6 +91,11 @@ class AppDatabase {
           // must survive every upgrade.
           if (oldVersion < 2) {
             for (final String statement in _favouritesDdl) {
+              await db.execute(statement);
+            }
+          }
+          if (oldVersion < 3) {
+            for (final String statement in _randomPicksDdl) {
               await db.execute(statement);
             }
           }
@@ -156,6 +177,9 @@ class AppDatabase {
     );
 
     for (final String statement in _favouritesDdl) {
+      batch.execute(statement);
+    }
+    for (final String statement in _randomPicksDdl) {
       batch.execute(statement);
     }
 

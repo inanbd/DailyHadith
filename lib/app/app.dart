@@ -117,15 +117,27 @@ class _DailyHadithAppState extends ConsumerState<DailyHadithApp>
     );
   }
 
-  /// Opens the reminder's collection at the reader's current position, and
-  /// marks that hadith read.
+  /// Opens the hadith the reminder showed — or, for a plain invitation, the
+  /// reminder's collection at the reader's current position — and marks it
+  /// read.
   ///
   /// The notification firing changed nothing; arriving here — the reader
   /// actually opening it — is what counts as reading it.
   Future<void> _openFromReminder(HadithDeepLink link) async {
-    final String? currentId =
-        ref.read(userPreferencesProvider).currentCollectionId;
-    if (link.collectionId != currentId) {
+    final int? ordinal = link.ordinal;
+    if (ordinal != null) {
+      ref.read(routerProvider).go(Routes.today);
+      await ref
+          .read(todayControllerProvider.notifier)
+          .openFromReminder(link.collectionId, ordinal);
+      return;
+    }
+
+    final UserPreferences preferences = ref.read(userPreferencesProvider);
+    // Random mode draws from several books; an invitation from one of them is
+    // no reason to change the reader's current book.
+    if (!preferences.isRandom &&
+        link.collectionId != preferences.currentCollectionId) {
       await ref
           .read(userPreferencesProvider.notifier)
           .setCurrentCollection(link.collectionId);

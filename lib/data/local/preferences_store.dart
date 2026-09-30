@@ -21,11 +21,16 @@ class PreferencesStore implements PreferencesRepository {
   static const String _kReadingOrder = 'pref.reading_order';
   static const String _kOnboardingComplete = 'pref.onboarding_complete';
   static const String _kCurrentCollection = 'pref.current_collection_id';
+  static const String _kRandomCollections = 'pref.random_collection_ids';
 
   static const String _kNotifyEnabled = 'notify.enabled';
   static const String _kNotifyFrequency = 'notify.frequency';
   static const String _kNotifyWeekdays = 'notify.weekdays';
+  /// Written alongside [_kNotifyTimes] as the earliest time, so a downgrade to
+  /// a build that knows only one time still finds a valid value.
   static const String _kNotifyTime = 'notify.time';
+  static const String _kNotifyTimes = 'notify.times';
+  static const String _kNotifyPreview = 'notify.show_preview';
   static const String _kNotifyTimezone = 'notify.timezone';
   static const String _kNotifyAnchor = 'notify.anchor_date';
 
@@ -38,6 +43,8 @@ class PreferencesStore implements PreferencesRepository {
       readingOrder: ReadingOrder.fromStorage(_prefs.getString(_kReadingOrder)),
       onboardingComplete: _prefs.getBool(_kOnboardingComplete) ?? false,
       currentCollectionId: _prefs.getString(_kCurrentCollection),
+      randomCollectionIds:
+          _prefs.getStringList(_kRandomCollections) ?? const <String>[],
     );
   }
 
@@ -54,6 +61,10 @@ class PreferencesStore implements PreferencesRepository {
     } else {
       await _prefs.setString(_kCurrentCollection, collectionId);
     }
+    await _prefs.setStringList(
+      _kRandomCollections,
+      preferences.randomCollectionIds,
+    );
   }
 
   @override
@@ -65,7 +76,11 @@ class PreferencesStore implements PreferencesRepository {
       frequency:
           NotificationFrequency.fromStorage(_prefs.getString(_kNotifyFrequency)),
       selectedWeekdays: _parseWeekdays(weekdays),
-      time: TimeOfDayValue.parse(_prefs.getString(_kNotifyTime)),
+      times: _parseTimes(
+        _prefs.getStringList(_kNotifyTimes),
+        _prefs.getString(_kNotifyTime),
+      ),
+      showHadithPreview: _prefs.getBool(_kNotifyPreview) ?? true,
       timezone: _prefs.getString(_kNotifyTimezone),
       anchorDate:
           anchor == null ? null : DateTime.fromMillisecondsSinceEpoch(anchor),
@@ -88,6 +103,13 @@ class PreferencesStore implements PreferencesRepository {
           .toList(growable: false),
     );
     await _prefs.setString(_kNotifyTime, preferences.time.storageValue);
+    await _prefs.setStringList(
+      _kNotifyTimes,
+      preferences.times
+          .map((TimeOfDayValue time) => time.storageValue)
+          .toList(growable: false),
+    );
+    await _prefs.setBool(_kNotifyPreview, preferences.showHadithPreview);
     final String? timezone = preferences.timezone;
     if (timezone == null) {
       await _prefs.remove(_kNotifyTimezone);
@@ -100,6 +122,18 @@ class PreferencesStore implements PreferencesRepository {
     } else {
       await _prefs.setInt(_kNotifyAnchor, anchor.millisecondsSinceEpoch);
     }
+  }
+
+  /// Reminder times, falling back to the single time stored by earlier
+  /// versions. Malformed entries are dropped rather than replaced, so one bad
+  /// value cannot turn into an extra 8:00 AM reminder.
+  static List<TimeOfDayValue> _parseTimes(List<String>? raw, String? legacy) {
+    final List<TimeOfDayValue> parsed = <TimeOfDayValue>[
+      for (final String value in raw ?? const <String>[])
+        if (TimeOfDayValue.tryParse(value) case final TimeOfDayValue time) time,
+    ];
+    if (parsed.isNotEmpty) return parsed;
+    return <TimeOfDayValue>[TimeOfDayValue.parse(legacy)];
   }
 
   static Set<int> _parseWeekdays(List<String>? raw) {

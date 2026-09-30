@@ -152,7 +152,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               enabled: _remindersEnabled,
               frequency: _frequency,
               selectedWeekdays: _weekdays,
-              time: _time,
+              times: <TimeOfDayValue>[_time],
               anchorDate: DateTime.now(),
             ),
           );

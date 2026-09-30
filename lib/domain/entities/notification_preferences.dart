@@ -10,14 +10,17 @@ class TimeOfDayValue implements Comparable<TimeOfDayValue> {
 
   /// Parses `"HH:mm"`. Falls back to the default reminder time when malformed,
   /// so a corrupt preference can never break scheduling.
-  factory TimeOfDayValue.parse(String? value) {
-    if (value == null) return defaultTime;
+  factory TimeOfDayValue.parse(String? value) => tryParse(value) ?? defaultTime;
+
+  /// Parses `"HH:mm"`, or returns null when [value] is missing or malformed.
+  static TimeOfDayValue? tryParse(String? value) {
+    if (value == null) return null;
     final List<String> parts = value.split(':');
-    if (parts.length != 2) return defaultTime;
+    if (parts.length != 2) return null;
     final int? hour = int.tryParse(parts[0]);
     final int? minute = int.tryParse(parts[1]);
-    if (hour == null || minute == null) return defaultTime;
-    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return defaultTime;
+    if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
     return TimeOfDayValue(hour, minute);
   }
 
@@ -50,21 +53,40 @@ class TimeOfDayValue implements Comparable<TimeOfDayValue> {
 /// against the device's *current* timezone every time it schedules.
 @immutable
 class NotificationPreferences {
-  const NotificationPreferences({
+  /// [times] is normalised on the way in — sorted, without duplicates, and
+  /// never empty — so everything downstream can rely on that.
+  NotificationPreferences({
     required this.enabled,
     required this.frequency,
     required this.selectedWeekdays,
-    required this.time,
+    required List<TimeOfDayValue> times,
+    this.showHadithPreview = true,
     this.timezone,
     this.anchorDate,
-  });
+  }) : times = normaliseTimes(times);
 
-  static const NotificationPreferences defaults = NotificationPreferences(
-    enabled: false,
-    frequency: NotificationFrequency.daily,
-    selectedWeekdays: <int>{1, 2, 3, 4, 5, 6, 7},
-    time: TimeOfDayValue.defaultTime,
-  );
+  const NotificationPreferences._defaults()
+      : enabled = false,
+        frequency = NotificationFrequency.daily,
+        selectedWeekdays = const <int>{1, 2, 3, 4, 5, 6, 7},
+        times = const <TimeOfDayValue>[TimeOfDayValue.defaultTime],
+        showHadithPreview = true,
+        timezone = null,
+        anchorDate = null;
+
+  static const NotificationPreferences defaults =
+      NotificationPreferences._defaults();
+
+  /// The most reminders a single day can carry. Keeps the number of alarms the
+  /// OS is asked to hold well inside every platform's limit.
+  static const int maxTimesPerDay = 6;
+
+  /// Sorted, de-duplicated, capped at [maxTimesPerDay], and never empty.
+  static List<TimeOfDayValue> normaliseTimes(Iterable<TimeOfDayValue> times) {
+    final List<TimeOfDayValue> sorted = times.toSet().toList()..sort();
+    if (sorted.isEmpty) return const <TimeOfDayValue>[TimeOfDayValue.defaultTime];
+    return List<TimeOfDayValue>.unmodifiable(sorted.take(maxTimesPerDay));
+  }
 
   /// Whether the reader has asked for reminders. Independent of whether the OS
   /// currently permits them.
@@ -76,7 +98,16 @@ class NotificationPreferences {
   /// [NotificationFrequency.selectedDays] and [NotificationFrequency.weekly].
   final Set<int> selectedWeekdays;
 
-  final TimeOfDayValue time;
+  /// Every time of day a reminder lands, earliest first. Each one starts a new
+  /// reading period, so three times a day means up to three hadith a day.
+  final List<TimeOfDayValue> times;
+
+  /// The earliest reminder of the day.
+  TimeOfDayValue get time => times.first;
+
+  /// Whether a reminder carries the hadith it is for, rather than only an
+  /// invitation to open the app.
+  final bool showHadithPreview;
 
   /// The IANA zone last used to schedule. Recorded only so the app can notice
   /// the device moved and reschedule; it is never used to override the device.
@@ -90,7 +121,8 @@ class NotificationPreferences {
     bool? enabled,
     NotificationFrequency? frequency,
     Set<int>? selectedWeekdays,
-    TimeOfDayValue? time,
+    List<TimeOfDayValue>? times,
+    bool? showHadithPreview,
     String? timezone,
     DateTime? anchorDate,
   }) {
@@ -98,7 +130,8 @@ class NotificationPreferences {
       enabled: enabled ?? this.enabled,
       frequency: frequency ?? this.frequency,
       selectedWeekdays: selectedWeekdays ?? this.selectedWeekdays,
-      time: time ?? this.time,
+      times: times ?? this.times,
+      showHadithPreview: showHadithPreview ?? this.showHadithPreview,
       timezone: timezone ?? this.timezone,
       anchorDate: anchorDate ?? this.anchorDate,
     );

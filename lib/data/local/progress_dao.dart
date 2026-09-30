@@ -38,6 +38,7 @@ class ProgressDao {
     int ordinal,
     int totalHadith, {
     DateTime? at,
+    bool movePosition = true,
   }) async {
     final Database db = await _database.database;
     final int timestamp = (at ?? DateTime.now()).millisecondsSinceEpoch;
@@ -52,11 +53,14 @@ class ProgressDao {
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
+      // A hadith read out of order (random mode) is recorded as read, but
+      // leaves the book's own position and reading period alone, so reading
+      // that book in order later carries on from where it was.
       await _touch(
         txn,
         collectionId,
-        currentOrdinal: ordinal,
-        lastReadAt: timestamp,
+        currentOrdinal: movePosition ? ordinal : null,
+        lastReadAt: movePosition ? timestamp : null,
         startedAtIfMissing: timestamp,
       );
       await _refreshCompletion(txn, collectionId, totalHadith, timestamp);

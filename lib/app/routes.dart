@@ -20,6 +20,7 @@ abstract final class Routes {
       '$library/$collectionSegment/${Uri.encodeComponent(collectionId)}';
 
   static const String settingsNotifications = '$settings/notifications';
+  static const String settingsReading = '$settings/reading';
   static const String settingsLanguage = '$settings/language';
   static const String settingsAppearance = '$settings/appearance';
   static const String settingsAbout = '$settings/about';

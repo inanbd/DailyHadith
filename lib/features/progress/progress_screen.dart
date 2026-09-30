@@ -130,10 +130,11 @@ class _ProgressCard extends ConsumerWidget {
     WidgetRef ref,
     bool isCurrent,
   ) async {
-    if (!isCurrent) {
+    // Continuing a book means reading it in order, even from random mode.
+    if (!isCurrent || ref.read(userPreferencesProvider).isRandom) {
       await ref
           .read(userPreferencesProvider.notifier)
-          .setCurrentCollection(entry.collection.id);
+          .readInOrder(entry.collection.id);
       await ref
           .read(notificationPreferencesProvider.notifier)
           .applyToScheduler();

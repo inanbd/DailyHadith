@@ -32,9 +32,14 @@ void notificationBackgroundHandler(NotificationResponse response) {
 /// keeps 8:00 AM at 8:00 AM.
 ///
 /// Daily, weekly and selected-day cadences are armed as OS-level repeating
-/// notifications, which survive reboots and app updates without the app
-/// running. Every-other-day has no repeating equivalent, so a rolling window of
-/// concrete occurrences is armed instead and topped up on each app start.
+/// notifications, one per reminder time, which survive reboots and app updates
+/// without the app running. Every-other-day has no repeating equivalent, so a
+/// rolling window of concrete occurrences is armed instead and topped up on
+/// each app start.
+///
+/// Reminders that carry their hadith are always concrete occurrences: a
+/// repeating notification repeats its text, and each of these says something
+/// different. They are armed as a rolling window too.
 ///
 /// ## How reminders stay punctual
 ///
@@ -63,18 +68,23 @@ class LocalNotificationScheduler implements NotificationScheduler {
   static const String channelDescription =
       'A gentle prompt when your next hadith is ready to read.';
 
-  /// Id of the single repeating daily reminder.
-  static const int _dailyId = 1000;
-
-  /// Weekly / selected-day reminders occupy 1001-1007 (one per ISO weekday).
-  static const int _weekdayIdBase = 1000;
+  /// Repeating reminders occupy 1000-1099: `1000 + 10 × time index`, plus the
+  /// ISO weekday (1-7) for weekly and selected-day cadences. The first time's
+  /// ids are the ones earlier versions used for their single time.
+  static const int _repeatingIdBase = 1000;
 
   /// Every-other-day occurrences occupy 1100 upwards.
   static const int _intervalIdBase = 1100;
 
-  /// How many every-other-day occurrences to keep armed — roughly two months,
-  /// re-armed whenever the app runs.
-  static const int _intervalWindow = 30;
+  /// Reminders carrying a hadith occupy 1200 upwards.
+  static const int _plannedIdBase = 1200;
+
+  /// How many concrete occurrences to keep armed, re-armed whenever the app
+  /// runs. Stays under iOS's limit of 64 pending notifications per app.
+  static const int occurrenceWindow = 60;
+
+  static int _repeatingId(int timeIndex, [int weekday = 0]) =>
+      _repeatingIdBase + timeIndex * 10 + weekday;
 
   @override
   Stream<HadithDeepLink> get deepLinks => _deepLinks.stream;
@@ -238,6 +248,7 @@ class LocalNotificationScheduler implements NotificationScheduler {
     required NotificationPreferences preferences,
     required String? collectionId,
     required String? collectionTitle,
+    List<PlannedReminder> planned = const <PlannedReminder>[],
   }) async {
     await initialize();
     // Re-resolve the device zone: this is the moment a timezone change or a
@@ -269,36 +280,63 @@ class LocalNotificationScheduler implements NotificationScheduler {
       'collectionId': collectionId,
     });
 
+    if (planned.isNotEmpty) {
+      final DateTime now = DateTime.now();
+      final List<PlannedReminder> upcoming = planned
+          .where((PlannedReminder reminder) => reminder.at.isAfter(now))
+          .take(occurrenceWindow)
+          .toList();
+      for (int index = 0; index < upcoming.length; index++) {
+        final PlannedReminder reminder = upcoming[index];
+        await _scheduleRepeating(
+          id: _plannedIdBase + index,
+          first: _toTz(reminder.at),
+          match: null,
+          mode: mode,
+          title: reminder.title,
+          body: reminder.body,
+          expandedBody: reminder.expandedBody,
+          payload: _payloadFor(reminder.link),
+        );
+      }
+      return;
+    }
+
+    final List<TimeOfDayValue> times = preferences.times;
     switch (preferences.frequency) {
       case NotificationFrequency.daily:
-        await _scheduleRepeating(
-          id: _dailyId,
-          first: _nextInstanceOfTime(preferences.time),
-          match: DateTimeComponents.time,
-          mode: mode,
-          title: title,
-          body: body,
-          payload: payload,
-        );
-      case NotificationFrequency.selectedDays:
-      case NotificationFrequency.weekly:
-        final Set<int> weekdays = ReminderSchedule(preferences).activeWeekdays;
-        for (final int weekday in weekdays) {
+        for (int t = 0; t < times.length; t++) {
           await _scheduleRepeating(
-            id: _weekdayIdBase + weekday,
-            first: _nextInstanceOfWeekday(weekday, preferences.time),
-            match: DateTimeComponents.dayOfWeekAndTime,
+            id: _repeatingId(t),
+            first: _nextInstanceOfTime(times[t]),
+            match: DateTimeComponents.time,
             mode: mode,
             title: title,
             body: body,
             payload: payload,
           );
         }
+      case NotificationFrequency.selectedDays:
+      case NotificationFrequency.weekly:
+        final Set<int> weekdays = ReminderSchedule(preferences).activeWeekdays;
+        for (int t = 0; t < times.length; t++) {
+          for (final int weekday in weekdays) {
+            await _scheduleRepeating(
+              id: _repeatingId(t, weekday),
+              first: _nextInstanceOfWeekday(weekday, times[t]),
+              match: DateTimeComponents.dayOfWeekAndTime,
+              mode: mode,
+              title: title,
+              body: body,
+              payload: payload,
+            );
+          }
+        }
       case NotificationFrequency.everyOtherDay:
         // No repeating rule matches "every other day", so a window of concrete
         // occurrences is armed and topped up whenever the app runs.
         final List<DateTime> occurrences = ReminderSchedule(preferences)
-            .nextOccurrences(DateTime.now(), count: _intervalWindow);
+            .nextOccurrences(DateTime.now(), count: occurrenceWindow);
         for (int index = 0; index < occurrences.length; index++) {
           await _scheduleRepeating(
             id: _intervalIdBase + index,
@@ -321,6 +359,7 @@ class LocalNotificationScheduler implements NotificationScheduler {
     required String title,
     required String body,
     required String payload,
+    String? expandedBody,
   }) async {
     try {
       await _plugin.zonedSchedule(
@@ -328,18 +367,20 @@ class LocalNotificationScheduler implements NotificationScheduler {
         title,
         body,
         first,
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
             channelId,
             channelName,
             channelDescription: channelDescription,
             importance: Importance.defaultImportance,
             priority: Priority.defaultPriority,
-            // The hadith itself is never put in the notification — the reminder
-            // only invites the reader to open the app.
-            styleInformation: DefaultStyleInformation(false, false),
+            // A reminder carrying a hadith expands to show more of it; a plain
+            // invitation has nothing more to show.
+            styleInformation: expandedBody == null
+                ? const DefaultStyleInformation(false, false)
+                : BigTextStyleInformation(expandedBody),
           ),
-          iOS: DarwinNotificationDetails(
+          iOS: const DarwinNotificationDetails(
             presentAlert: true,
             presentBadge: false,
             presentSound: true,
@@ -366,6 +407,7 @@ class LocalNotificationScheduler implements NotificationScheduler {
         title: title,
         body: body,
         payload: payload,
+        expandedBody: expandedBody,
       );
     }
   }
@@ -396,11 +438,22 @@ class LocalNotificationScheduler implements NotificationScheduler {
       if (decoded is! Map<String, Object?>) return null;
       final Object? collectionId = decoded['collectionId'];
       if (collectionId is! String || collectionId.isEmpty) return null;
-      return HadithDeepLink(collectionId: collectionId);
+      final Object? ordinal = decoded['ordinal'];
+      return HadithDeepLink(
+        collectionId: collectionId,
+        ordinal: ordinal is int && ordinal > 0 ? ordinal : null,
+      );
     } on FormatException {
       return null;
     }
   }
+
+  static String _payloadFor(HadithDeepLink link) =>
+      jsonEncode(<String, Object?>{
+        'type': 'reminder',
+        'collectionId': link.collectionId,
+        'ordinal': link.ordinal,
+      });
 
   static tz.TZDateTime _toTz(DateTime value) => tz.TZDateTime(
         tz.local,

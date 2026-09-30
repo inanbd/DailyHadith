@@ -11,6 +11,7 @@ import '../../app/routes.dart';
 import '../../app/speech_providers.dart';
 import '../../core/errors/app_exception.dart';
 import '../../core/utils/formatting.dart';
+import '../../domain/entities/enums.dart';
 import '../../domain/entities/hadith.dart';
 import '../../domain/entities/hadith_collection.dart';
 import '../../domain/entities/reading_progress.dart';
@@ -23,6 +24,7 @@ import '../../shared/widgets/hadith_view.dart';
 import '../../shared/widgets/notice_banner.dart';
 import '../../shared/widgets/progress_bar.dart';
 import '../../shared/widgets/state_views.dart';
+import '../settings/settings_labels.dart';
 import 'chapters_sheet.dart';
 import 'today_controller.dart';
 
@@ -93,7 +95,12 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
       },
       child: AppPage(
         title: 'Today’s Hadith',
-        actions: <Widget>[_ChaptersButton(collectionId: state.value?.collection?.id)],
+        actions: <Widget>[
+          const _ReadingModeButton(),
+          // Chapters are a way of moving through one book in order.
+          if (!(state.value?.isRandom ?? false))
+            _ChaptersButton(collectionId: state.value?.collection?.id),
+        ],
         child: state.when(
           loading: () => const LoadingView(),
           error: (Object error, StackTrace stack) => _TodayError(error: error),
@@ -145,6 +152,71 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
 
     _autoMarked.add(hadithId);
     ref.read(todayControllerProvider.notifier).markRead();
+  }
+}
+
+/// Switches between reading in order and reading at random.
+///
+/// Lit when random is on. Switching tells the reader where the random hadith
+/// come from, with a way to choose different books.
+class _ReadingModeButton extends ConsumerWidget {
+  const _ReadingModeButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final UserPreferences preferences = ref.watch(userPreferencesProvider);
+    final bool random = preferences.isRandom;
+    final AppColors colors = context.colors;
+
+    return IconButton(
+      onPressed: () => _toggle(context, ref, preferences),
+      isSelected: random,
+      icon: Icon(
+        Icons.shuffle,
+        size: 22,
+        color: random ? colors.accent : colors.textSecondary,
+      ),
+      tooltip: random ? 'Read in order' : 'Read at random',
+      constraints: const BoxConstraints(
+        minWidth: AppSpacing.minTapTarget,
+        minHeight: AppSpacing.minTapTarget,
+      ),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  static Future<void> _toggle(
+    BuildContext context,
+    WidgetRef ref,
+    UserPreferences preferences,
+  ) async {
+    final ScaffoldMessengerState? messenger =
+        ScaffoldMessenger.maybeOf(context);
+    final GoRouter router = GoRouter.of(context);
+    final bool toRandom = !preferences.isRandom;
+    await ref.read(userPreferencesProvider.notifier).setReadingOrder(
+          toRandom ? ReadingOrder.random : ReadingOrder.sequential,
+        );
+    await ref.read(todayControllerProvider.notifier).refresh();
+
+    messenger
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            toRandom
+                ? 'Random hadith from '
+                    '${SettingsLabels.books(preferences.randomPool.length)}'
+                : 'Reading in order',
+          ),
+          action: toRandom
+              ? SnackBarAction(
+                  label: 'Choose books',
+                  onPressed: () => router.go(Routes.settingsReading),
+                )
+              : null,
+        ),
+      );
   }
 }
 
@@ -242,7 +314,11 @@ class _TodayBody extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          _HadithMeta(collection: collection, hadith: hadith),
+          _HadithMeta(
+            collection: collection,
+            hadith: hadith,
+            randomFrom: state.isRandom ? state.poolSize : null,
+          ),
           if (collection.isFixture) ...<Widget>[
             const SizedBox(height: AppSpacing.lg),
             const NoticeBanner(
@@ -298,9 +374,10 @@ class _TodayBody extends ConsumerWidget {
           // Nothing to look at: the point past which the whole hadith, citation
           // included, has been on screen.
           SizedBox(key: endOfHadithKey, height: AppSpacing.xxl),
+          // At random, progress is across every book being drawn from.
           ReadingProgressBar(
-            read: progress.totalRead,
-            total: progress.totalHadith,
+            read: state.isRandom ? state.poolRead : progress.totalRead,
+            total: state.isRandom ? state.poolTotal : progress.totalHadith,
           ),
           const SizedBox(height: AppSpacing.xl),
           _ReadingActions(state: state),
@@ -333,10 +410,18 @@ class _TodayBody extends ConsumerWidget {
 /// "Riyad as-Salihin · Hadith 24" and, when the source provides it, the book
 /// number and chapter.
 class _HadithMeta extends StatelessWidget {
-  const _HadithMeta({required this.collection, required this.hadith});
+  const _HadithMeta({
+    required this.collection,
+    required this.hadith,
+    this.randomFrom,
+  });
 
   final HadithCollection collection;
   final Hadith hadith;
+
+  /// How many books a random hadith was drawn from; null when reading in
+  /// order.
+  final int? randomFrom;
 
   @override
   Widget build(BuildContext context) {
@@ -358,6 +443,13 @@ class _HadithMeta extends StatelessWidget {
           parts.join(' · '),
           style: AppTypography.metadata.copyWith(color: colors.textSecondary),
         ),
+        if (randomFrom != null) ...<Widget>[
+          const SizedBox(height: 2),
+          Text(
+            'Random · from ${SettingsLabels.books(randomFrom!)}',
+            style: AppTypography.metadata.copyWith(color: colors.accent),
+          ),
+        ],
       ],
     );
   }
@@ -374,6 +466,31 @@ class _ReadingActions extends ConsumerWidget {
     final TodayController controller =
         ref.read(todayControllerProvider.notifier);
     final AppColors colors = context.colors;
+    final Widget markButton = state.isRead
+        ? OutlinedButton.icon(
+            onPressed: controller.markUnread,
+            icon: Icon(Icons.check, size: 18, color: colors.accent),
+            label: const Text('Read'),
+          )
+        : FilledButton(
+            onPressed: controller.markRead,
+            child: const Text('Mark as read'),
+          );
+
+    // At random there is no previous or next — only another draw.
+    if (state.isRandom) {
+      return Row(
+        children: <Widget>[
+          _NavButton(
+            icon: Icons.shuffle,
+            tooltip: 'Show another hadith',
+            onPressed: controller.showAnother,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(child: markButton),
+        ],
+      );
+    }
 
     return Row(
       children: <Widget>[
@@ -383,18 +500,7 @@ class _ReadingActions extends ConsumerWidget {
           onPressed: state.hasPrevious ? controller.goToPrevious : null,
         ),
         const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: state.isRead
-              ? OutlinedButton.icon(
-                  onPressed: controller.markUnread,
-                  icon: Icon(Icons.check, size: 18, color: colors.accent),
-                  label: const Text('Read'),
-                )
-              : FilledButton(
-                  onPressed: controller.markRead,
-                  child: const Text('Mark as read'),
-                ),
-        ),
+        Expanded(child: markButton),
         const SizedBox(width: AppSpacing.md),
         _NavButton(
           icon: Icons.chevron_right,

@@ -8,13 +8,14 @@ void main() {
     NotificationFrequency frequency = NotificationFrequency.daily,
     Set<int> weekdays = const <int>{1, 2, 3, 4, 5, 6, 7},
     TimeOfDayValue time = const TimeOfDayValue(8, 0),
+    List<TimeOfDayValue>? times,
     DateTime? anchor,
   }) {
     return NotificationPreferences(
       enabled: true,
       frequency: frequency,
       selectedWeekdays: weekdays,
-      time: time,
+      times: times ?? <TimeOfDayValue>[time],
       anchorDate: anchor,
     );
   }
@@ -191,6 +192,78 @@ void main() {
       ]) {
         expect(TimeOfDayValue.parse(bad), TimeOfDayValue.defaultTime);
       }
+    });
+  });
+
+  group('several times a day', () {
+    final List<TimeOfDayValue> threeTimes = <TimeOfDayValue>[
+      const TimeOfDayValue(20, 0),
+      const TimeOfDayValue(8, 0),
+      const TimeOfDayValue(13, 30),
+    ];
+
+    test('times are kept earliest first, without duplicates', () {
+      final NotificationPreferences preferences = prefs(
+        times: <TimeOfDayValue>[...threeTimes, const TimeOfDayValue(8, 0)],
+      );
+      expect(preferences.times, const <TimeOfDayValue>[
+        TimeOfDayValue(8, 0),
+        TimeOfDayValue(13, 30),
+        TimeOfDayValue(20, 0),
+      ]);
+      expect(preferences.time, const TimeOfDayValue(8, 0));
+    });
+
+    test('an empty list falls back to the default time', () {
+      expect(prefs(times: const <TimeOfDayValue>[]).times,
+          const <TimeOfDayValue>[TimeOfDayValue.defaultTime]);
+    });
+
+    test('fires at each time, in order, across days', () {
+      final ReminderSchedule schedule =
+          ReminderSchedule(prefs(times: threeTimes));
+      expect(
+        schedule.nextOccurrences(DateTime(2026, 1, 7, 9, 0), count: 4),
+        <DateTime>[
+          DateTime(2026, 1, 7, 13, 30),
+          DateTime(2026, 1, 7, 20, 0),
+          DateTime(2026, 1, 8, 8, 0),
+          DateTime(2026, 1, 8, 13, 30),
+        ],
+      );
+    });
+
+    test('each reminder starts a new reading period', () {
+      final ReminderSchedule schedule =
+          ReminderSchedule(prefs(times: threeTimes));
+      expect(schedule.currentPeriodStart(DateTime(2026, 1, 7, 7, 0)),
+          DateTime(2026, 1, 6, 20, 0));
+      expect(schedule.currentPeriodStart(DateTime(2026, 1, 7, 14, 0)),
+          DateTime(2026, 1, 7, 13, 30));
+      expect(schedule.currentPeriodStart(DateTime(2026, 1, 7, 23, 0)),
+          DateTime(2026, 1, 7, 20, 0));
+    });
+
+    test('selected days fire at every time on those days only', () {
+      final ReminderSchedule schedule = ReminderSchedule(
+        prefs(
+          frequency: NotificationFrequency.selectedDays,
+          weekdays: <int>{5},
+          times: <TimeOfDayValue>[
+            const TimeOfDayValue(8, 0),
+            const TimeOfDayValue(18, 0),
+          ],
+        ),
+      );
+      // Wednesday 2026-01-07; the next Friday is the 9th.
+      expect(
+        schedule.nextOccurrences(DateTime(2026, 1, 7, 9, 0), count: 3),
+        <DateTime>[
+          DateTime(2026, 1, 9, 8, 0),
+          DateTime(2026, 1, 9, 18, 0),
+          DateTime(2026, 1, 16, 8, 0),
+        ],
+      );
     });
   });
 }

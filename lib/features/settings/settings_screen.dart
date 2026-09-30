@@ -41,6 +41,14 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => context.go(Routes.library),
               ),
               SettingsRow(
+                label: 'Daily hadith',
+                value: SettingsLabels.readingMode(
+                  preferences.readingOrder,
+                  preferences.randomPool.length,
+                ),
+                onTap: () => context.go(Routes.settingsReading),
+              ),
+              SettingsRow(
                 label: 'Language',
                 value: SettingsLabels.language(preferences.languageMode),
                 onTap: () => context.go(Routes.settingsLanguage),
@@ -62,12 +70,16 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => context.go(Routes.settingsNotifications),
               ),
               SettingsRow(
-                label: 'Time',
-                value: Formatting.timeOfDay(
-                  notifications.time.hour,
-                  notifications.time.minute,
-                  use24Hour: use24Hour,
-                ),
+                label: notifications.times.length == 1 ? 'Time' : 'Times',
+                value: notifications.times
+                    .map(
+                      (TimeOfDayValue time) => Formatting.timeOfDay(
+                        time.hour,
+                        time.minute,
+                        use24Hour: use24Hour,
+                      ),
+                    )
+                    .join(', '),
                 onTap: () => context.go(Routes.settingsNotifications),
               ),
             ],

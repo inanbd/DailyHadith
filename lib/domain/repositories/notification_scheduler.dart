@@ -11,18 +11,56 @@ export '../entities/reminder_readiness.dart';
 /// Where a tapped notification should take the reader.
 @immutable
 class HadithDeepLink {
-  const HadithDeepLink({required this.collectionId});
+  const HadithDeepLink({required this.collectionId, this.ordinal});
 
-  /// The collection the reminder was for. The reader is taken to their current
-  /// position in it — never to a hadith chosen by the notification itself.
+  /// The collection the reminder was for.
   final String collectionId;
+
+  /// The hadith the reminder showed, when it showed one. Tapping opens exactly
+  /// that hadith, so what the reader saw is what they get. Null for a plain
+  /// invitation, which opens the reader's current position instead.
+  final int? ordinal;
 
   @override
   bool operator ==(Object other) =>
-      other is HadithDeepLink && other.collectionId == collectionId;
+      other is HadithDeepLink &&
+      other.collectionId == collectionId &&
+      other.ordinal == ordinal;
 
   @override
-  int get hashCode => collectionId.hashCode;
+  int get hashCode => Object.hash(collectionId, ordinal);
+
+  @override
+  String toString() => 'HadithDeepLink($collectionId, $ordinal)';
+}
+
+/// One reminder that carries the hadith it is for.
+///
+/// Planned by the app, which knows reading progress and random picks, and
+/// armed by the scheduler, which knows only the platform.
+@immutable
+class PlannedReminder {
+  const PlannedReminder({
+    required this.at,
+    required this.title,
+    required this.body,
+    required this.expandedBody,
+    required this.link,
+  });
+
+  /// Wall-clock time; resolved against the device's timezone when armed.
+  final DateTime at;
+
+  final String title;
+
+  /// A short excerpt, for the collapsed notification.
+  final String body;
+
+  /// A longer excerpt, for the expanded notification where the platform has
+  /// one.
+  final String expandedBody;
+
+  final HadithDeepLink link;
 }
 
 /// Everything the app needs from the platform's local-notification support.
@@ -62,10 +100,15 @@ abstract interface class NotificationScheduler {
   /// Called whenever preferences change and on every app start, which is what
   /// keeps reminders correct across reboots, app updates, DST transitions and
   /// the reader travelling to a new timezone.
+  ///
+  /// When [planned] is not empty, exactly those reminders are armed — each one
+  /// a single occurrence carrying its own hadith. Otherwise the cadence in
+  /// [preferences] is armed as repeating invitations to open the app.
   Future<void> reschedule({
     required NotificationPreferences preferences,
     required String? collectionId,
     required String? collectionTitle,
+    List<PlannedReminder> planned = const <PlannedReminder>[],
   });
 
   Future<void> cancelAll();

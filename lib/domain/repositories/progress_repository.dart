@@ -10,12 +10,17 @@ abstract interface class ProgressRepository {
 
   /// Marks a single hadith read. Only this hadith — hadith skipped over are
   /// deliberately left unread.
+  ///
+  /// [movePosition] false records the read without moving the book's reading
+  /// position or its last-read time: how random mode reads a hadith without
+  /// disturbing the reader's place in that book.
   Future<ReadingProgress> markRead(
     String collectionId,
     String hadithId,
     int ordinal,
     int totalHadith, {
     DateTime? at,
+    bool movePosition = true,
   });
 
   Future<ReadingProgress> markUnread(

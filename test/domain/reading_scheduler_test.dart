@@ -5,11 +5,11 @@ import 'package:daily_hadith/domain/services/reading_scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  const NotificationPreferences daily = NotificationPreferences(
+  final NotificationPreferences daily = NotificationPreferences(
     enabled: true,
     frequency: NotificationFrequency.daily,
-    selectedWeekdays: <int>{1, 2, 3, 4, 5, 6, 7},
-    time: TimeOfDayValue(8, 0),
+    selectedWeekdays: const <int>{1, 2, 3, 4, 5, 6, 7},
+    times: const <TimeOfDayValue>[TimeOfDayValue(8, 0)],
   );
 
   ReadingProgress progress({

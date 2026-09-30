@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:daily_hadith/data/local/app_database.dart';
 import 'package:daily_hadith/data/local/favourites_dao.dart';
+import 'package:daily_hadith/data/local/random_pick_dao.dart';
+import 'package:daily_hadith/domain/entities/random_pick.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -107,6 +109,29 @@ void main() {
 
     expect(await dao.isFavourite('riyad_as_salihin', 'riyad_as_salihin:1'),
         isTrue);
+  });
+
+  test('upgrading adds a usable random picks table', () async {
+    await seedV1();
+
+    final AppDatabase upgraded = AppDatabase(
+      factoryOverride: databaseFactoryFfi,
+      pathOverride: path,
+    );
+    addTearDown(upgraded.close);
+    final RandomPickDao dao = RandomPickDao(upgraded);
+    final RandomPick pick = RandomPick(
+      periodStart: DateTime(2026, 1, 7, 8),
+      collectionId: 'riyad_as_salihin',
+      ordinal: 12,
+    );
+
+    await dao.save(pick);
+
+    expect(await dao.pickFor(DateTime(2026, 1, 7, 8)), pick);
+    expect(await dao.picksFrom(DateTime(2026, 1, 8)), isEmpty);
+    await dao.deleteBefore(DateTime(2026, 1, 8));
+    expect(await dao.pickFor(DateTime(2026, 1, 7, 8)), isNull);
   });
 
   test('a fresh install and an upgraded one agree on the schema', () async {

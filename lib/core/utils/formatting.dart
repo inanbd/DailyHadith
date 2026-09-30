@@ -51,4 +51,20 @@ abstract final class Formatting {
     final List<int> sorted = weekdays.toList()..sort();
     return sorted.map(shortWeekday).join(', ');
   }
+
+  /// The opening of [text], at most [maxLength] characters, cut at a word
+  /// boundary and marked with an ellipsis when anything was left out.
+  ///
+  /// Line breaks and runs of spaces are collapsed first, because the excerpt
+  /// is for a single notification line. Only ever used for previews that link
+  /// to the full text — never in place of it.
+  static String excerpt(String text, int maxLength) {
+    final String flat = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (flat.length <= maxLength) return flat;
+    final String cut = flat.substring(0, maxLength);
+    final int lastSpace = cut.lastIndexOf(' ');
+    final String head =
+        lastSpace > maxLength ~/ 2 ? cut.substring(0, lastSpace) : cut;
+    return '${head.trimRight()}…';
+  }
 }

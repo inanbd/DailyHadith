@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,11 +10,13 @@ import '../data/local/favourites_dao.dart';
 import '../data/local/hadith_dao.dart';
 import '../data/local/preferences_store.dart';
 import '../data/local/progress_dao.dart';
+import '../data/local/random_pick_dao.dart';
 import '../data/notifications/local_notification_scheduler.dart';
 import '../data/repositories/favourites_repository_impl.dart';
 import '../data/repositories/hadith_repository_impl.dart';
 import '../data/repositories/progress_repository_impl.dart';
 import '../data/speech/flutter_tts_speech_synthesizer.dart';
+import '../domain/entities/enums.dart';
 import '../domain/entities/hadith_collection.dart';
 import '../domain/entities/notification_preferences.dart';
 import '../domain/entities/user_preferences.dart';
@@ -22,7 +26,11 @@ import '../domain/repositories/hadith_repository.dart';
 import '../domain/repositories/notification_scheduler.dart';
 import '../domain/repositories/preferences_repository.dart';
 import '../domain/repositories/progress_repository.dart';
+import '../domain/repositories/random_pick_repository.dart';
 import '../domain/repositories/speech_synthesizer.dart';
+import '../domain/services/reminder_schedule.dart';
+import 'random_selection.dart';
+import 'reminder_planner.dart';
 
 /// Thrown if a provider that must be overridden at startup is read directly.
 Never _mustOverride(String name) =>
@@ -87,6 +95,33 @@ final Provider<FavouritesRepository> favouritesRepositoryProvider =
   ),
 );
 
+/// Randomness, as a seam, so tests can make random mode repeatable.
+final Provider<Random> randomProvider = Provider<Random>((Ref ref) => Random());
+
+final Provider<RandomPickRepository> randomPickRepositoryProvider =
+    Provider<RandomPickRepository>(
+  (Ref ref) => RandomPickDao(ref.watch(appDatabaseProvider)),
+);
+
+final Provider<RandomSelection> randomSelectionProvider =
+    Provider<RandomSelection>(
+  (Ref ref) => RandomSelection(
+    hadithRepository: ref.watch(hadithRepositoryProvider),
+    progressRepository: ref.watch(progressRepositoryProvider),
+    picks: ref.watch(randomPickRepositoryProvider),
+    random: ref.watch(randomProvider),
+  ),
+);
+
+final Provider<ReminderPlanner> reminderPlannerProvider =
+    Provider<ReminderPlanner>(
+  (Ref ref) => ReminderPlanner(
+    hadithRepository: ref.watch(hadithRepositoryProvider),
+    progressRepository: ref.watch(progressRepositoryProvider),
+    randomSelection: ref.watch(randomSelectionProvider),
+  ),
+);
+
 final Provider<PreferencesRepository> preferencesRepositoryProvider =
     Provider<PreferencesRepository>(
   (Ref ref) => PreferencesStore(ref.watch(sharedPreferencesProvider)),
@@ -130,6 +165,37 @@ class UserPreferencesController extends Notifier<UserPreferences> {
   Future<void> setCurrentCollection(String collectionId) =>
       update(state.copyWith(currentCollectionId: collectionId));
 
+  /// Makes [collectionId] the current book and reads it in order — what
+  /// choosing a book to read from the library or progress screens means.
+  Future<void> readInOrder(String collectionId) => update(
+        state.copyWith(
+          currentCollectionId: collectionId,
+          readingOrder: ReadingOrder.sequential,
+        ),
+      );
+
+  /// Switches between reading in order and random, and re-arms reminders,
+  /// whose hadith depend on it.
+  Future<void> setReadingOrder(ReadingOrder order) async {
+    if (order == state.readingOrder) return;
+    await update(state.copyWith(readingOrder: order));
+    await ref.read(notificationPreferencesProvider.notifier).applyToScheduler();
+  }
+
+  /// Chooses the books random mode draws from.
+  ///
+  /// Picks already made for this period and later came from the old books, so
+  /// they are forgotten and drawn again from the new ones.
+  Future<void> setRandomPool(List<String> collectionIds) async {
+    if (collectionIds.isEmpty) return;
+    await update(state.copyWith(randomCollectionIds: collectionIds));
+    final DateTime periodStart =
+        ReminderSchedule(ref.read(notificationPreferencesProvider))
+            .currentPeriodStart(ref.read(clockProvider)());
+    await ref.read(randomSelectionProvider).forgetFrom(periodStart);
+    await ref.read(notificationPreferencesProvider.notifier).applyToScheduler();
+  }
+
   Future<void> completeOnboarding() =>
       update(state.copyWith(onboardingComplete: true));
 }
@@ -167,23 +233,57 @@ class NotificationPreferencesController
     try {
       final NotificationScheduler scheduler =
           ref.read(notificationSchedulerProvider);
-      final String? collectionId =
-          ref.read(userPreferencesProvider).currentCollectionId;
+      final UserPreferences user = ref.read(userPreferencesProvider);
+      final String? collectionId = user.currentCollectionId;
       String? title;
       if (collectionId != null) {
         final HadithCollection? collection =
             await ref.read(hadithRepositoryProvider).collection(collectionId);
         title = collection?.titleEnglish;
       }
+      // Planned first: it can take a moment, and the preferences armed must be
+      // the ones current when arming happens, not when planning began.
+      final List<PlannedReminder> planned = await _plan(user);
       await scheduler.reschedule(
         preferences: state,
         collectionId: collectionId,
         collectionTitle: title,
+        planned: planned,
       );
     } on Object catch (error, stack) {
       debugPrint('Daily Hadith: could not arm reminders: $error\n$stack');
     }
     ref.invalidate(reminderReadinessProvider);
+  }
+
+  /// The reminders that carry their hadith, or none when the reader wants
+  /// plain invitations.
+  ///
+  /// A plan that cannot be made is not a reason to go without reminders: the
+  /// plain ones are armed instead.
+  Future<List<PlannedReminder>> _plan(UserPreferences user) async {
+    if (!state.enabled || !state.showHadithPreview) {
+      return const <PlannedReminder>[];
+    }
+    try {
+      return await ref.read(reminderPlannerProvider).plan(
+            notifications: state,
+            user: user,
+            now: ref.read(clockProvider)(),
+          );
+    } on Object catch (error, stack) {
+      debugPrint('Daily Hadith: could not plan reminder previews: $error\n'
+          '$stack');
+      return const <PlannedReminder>[];
+    }
+  }
+
+  /// Re-arms reminders when their hadith may have changed — something was
+  /// marked read or unread, or a new random hadith was drawn. Plain
+  /// invitations say the same thing either way, so they are left alone.
+  Future<void> refreshPreviews() async {
+    if (!state.enabled || !state.showHadithPreview) return;
+    await applyToScheduler();
   }
 }
 

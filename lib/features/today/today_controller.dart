@@ -1,16 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
 
 import '../../app/collection_providers.dart';
 import '../../app/providers.dart';
+import '../../app/random_selection.dart';
 import '../../core/errors/app_exception.dart';
+import '../../domain/entities/enums.dart';
 import '../../domain/entities/hadith.dart';
 import '../../domain/entities/hadith_collection.dart';
+import '../../domain/entities/random_pick.dart';
 import '../../domain/entities/reading_progress.dart';
 import '../../domain/entities/user_preferences.dart';
 import '../../domain/repositories/hadith_repository.dart';
 import '../../domain/repositories/progress_repository.dart';
 import '../../domain/services/reading_scheduler.dart';
+import '../../domain/services/reminder_schedule.dart';
 
 /// What the Today screen renders.
 @immutable
@@ -20,10 +26,26 @@ class TodayState {
     this.hadith,
     this.progress,
     this.isRead = false,
+    this.order = ReadingOrder.sequential,
+    this.poolSize = 0,
+    this.poolRead = 0,
+    this.poolTotal = 0,
   });
 
   /// No book chosen yet.
   static const TodayState empty = TodayState();
+
+  /// How [hadith] was chosen: the next in its book, or at random for this
+  /// period from the reader's chosen books.
+  final ReadingOrder order;
+
+  bool get isRandom => order == ReadingOrder.random;
+
+  /// Random mode only: how many books it draws from, and how much of them has
+  /// been read.
+  final int poolSize;
+  final int poolRead;
+  final int poolTotal;
 
   final HadithCollection? collection;
 
@@ -37,16 +59,19 @@ class TodayState {
 
   bool get hasCollection => collection != null;
 
-  /// True once every hadith in the collection has been read.
-  bool get isCollectionComplete => progress?.isComplete ?? false;
+  /// True once every hadith in the collection has been read. Random mode has
+  /// no end: once everything is read it starts drawing from the whole pool.
+  bool get isCollectionComplete =>
+      !isRandom && (progress?.isComplete ?? false);
 
   int get ordinal => hadith?.ordinal ?? progress?.currentOrdinal ?? 1;
 
   int get total => progress?.totalHadith ?? collection?.totalHadith ?? 0;
 
-  bool get hasPrevious => ordinal > 1;
+  /// Paging through a book only means something when reading it in order.
+  bool get hasPrevious => !isRandom && ordinal > 1;
 
-  bool get hasNext => ordinal < total;
+  bool get hasNext => !isRandom && ordinal < total;
 }
 
 /// Drives the Today screen.
@@ -62,6 +87,8 @@ class TodayController extends AsyncNotifier<TodayState> {
   @override
   Future<TodayState> build() async {
     final UserPreferences preferences = ref.watch(userPreferencesProvider);
+    if (preferences.isRandom) return _buildRandom(preferences);
+
     final String? collectionId = preferences.currentCollectionId;
 
     if (collectionId == null) return TodayState.empty;
@@ -116,6 +143,129 @@ class TodayController extends AsyncNotifier<TodayState> {
     );
   }
 
+  /// Random mode: this period's pick from the reader's chosen books.
+  Future<TodayState> _buildRandom(UserPreferences preferences) async {
+    final RandomSelection selection = ref.watch(randomSelectionProvider);
+    final HadithRepository hadithRepository = ref.watch(hadithRepositoryProvider);
+    final ProgressRepository progressRepository =
+        ref.watch(progressRepositoryProvider);
+
+    final List<HadithCollection> pool =
+        await selection.readablePool(preferences.randomPool);
+    if (pool.isEmpty) {
+      return const TodayState(order: ReadingOrder.random);
+    }
+
+    final DateTime periodStart =
+        ReminderSchedule(ref.watch(notificationPreferencesProvider))
+            .currentPeriodStart(ref.watch(clockProvider)());
+
+    RandomPick? pick = await selection.pickFor(periodStart, pool);
+    HadithCollection? collection;
+    Hadith? hadith;
+    // A pick can outlive the text it points at — a dataset re-imported with
+    // fewer entries — so a missing hadith is replaced rather than shown as an
+    // error. Twice is plenty; the pick is only ever stale, never cursed.
+    for (int attempt = 0; attempt < 2 && pick != null; attempt++) {
+      collection = await hadithRepository.installCollection(pick.collectionId);
+      hadith = await hadithRepository.hadithAt(pick.collectionId, pick.ordinal);
+      if (hadith != null) break;
+      pick = await selection.pickFor(periodStart, pool, replace: true);
+    }
+    if (pick == null || collection == null || hadith == null) {
+      return const TodayState(order: ReadingOrder.random);
+    }
+
+    int poolRead = 0;
+    int poolTotal = 0;
+    ReadingProgress? progress;
+    for (final HadithCollection book in pool) {
+      final ReadingProgress bookProgress =
+          await progressRepository.progressFor(book.id, book.totalHadith);
+      poolRead += bookProgress.totalRead;
+      poolTotal += book.totalHadith;
+      if (book.id == collection.id) progress = bookProgress;
+    }
+    progress ??= await progressRepository.progressFor(
+      collection.id,
+      collection.totalHadith,
+    );
+
+    return TodayState(
+      collection: collection,
+      hadith: hadith,
+      progress: progress,
+      isRead: await progressRepository.isRead(collection.id, hadith.id),
+      order: ReadingOrder.random,
+      poolSize: pool.length,
+      poolRead: poolRead,
+      poolTotal: poolTotal,
+    );
+  }
+
+  /// Random mode: draws a different hadith for this period.
+  Future<void> showAnother() async {
+    final UserPreferences preferences = ref.read(userPreferencesProvider);
+    if (!preferences.isRandom) return;
+    final RandomSelection selection = ref.read(randomSelectionProvider);
+    final DateTime periodStart =
+        ReminderSchedule(ref.read(notificationPreferencesProvider))
+            .currentPeriodStart(ref.read(clockProvider)());
+    await selection.pickFor(
+      periodStart,
+      await selection.readablePool(preferences.randomPool),
+      replace: true,
+    );
+    ref.invalidateSelf();
+    await future;
+  }
+
+  /// Opens the hadith a reminder showed, and marks it read.
+  ///
+  /// In order, that moves the book to it. At random, it becomes this period's
+  /// hadith, so it stays on screen until the next reminder.
+  Future<void> openFromReminder(String collectionId, int ordinal) async {
+    final UserPreferences preferences = ref.read(userPreferencesProvider);
+    if (preferences.isRandom) {
+      final DateTime periodStart =
+          ReminderSchedule(ref.read(notificationPreferencesProvider))
+              .currentPeriodStart(ref.read(clockProvider)());
+      await ref.read(randomSelectionProvider).adopt(
+            RandomPick(
+              periodStart: periodStart,
+              collectionId: collectionId,
+              ordinal: ordinal,
+            ),
+          );
+      _pinnedOrdinal = null;
+      ref.invalidateSelf();
+    } else {
+      if (preferences.currentCollectionId != collectionId) {
+        await ref
+            .read(userPreferencesProvider.notifier)
+            .setCurrentCollection(collectionId);
+        // Changing the book rebuilds this controller, which drops any pinned
+        // position; wait for that before pinning a new one.
+        await future;
+      }
+      final HadithCollection collection = await ref
+          .read(hadithRepositoryProvider)
+          .installCollection(collectionId);
+      final int target = ordinal.clamp(1, collection.totalHadith);
+      _pinnedCollectionId = collectionId;
+      _pinnedOrdinal = target;
+      await ref.read(progressRepositoryProvider).setCurrentOrdinal(
+            collectionId,
+            target,
+            collection.totalHadith,
+          );
+      ref.invalidateSelf();
+    }
+    final TodayState opened = await future;
+    if (opened.hadith == null || opened.isRead) return;
+    await markRead();
+  }
+
   /// Re-reads everything and lets the position roll forward if a new reading
   /// period has begun. Called on app resume and on notification taps.
   Future<void> refresh() async {
@@ -143,6 +293,9 @@ class TodayController extends AsyncNotifier<TodayState> {
         hadith.ordinal,
         collection.totalHadith,
         at: ref.read(clockProvider)(),
+        // A random hadith is read where it stands; the reader's place in
+        // that book is theirs to keep.
+        movePosition: !current!.isRandom,
       );
     } else {
       await repository.markUnread(
@@ -152,11 +305,16 @@ class TodayController extends AsyncNotifier<TodayState> {
       );
     }
 
-    // Hold the reader on the hadith they just acted on.
-    _pinnedOrdinal = hadith.ordinal;
+    // Hold the reader on the hadith they just acted on. Random mode holds
+    // itself: the pick is stored for the period.
+    if (!current!.isRandom) _pinnedOrdinal = hadith.ordinal;
     _invalidateProgressViews();
     ref.invalidateSelf();
     await future;
+    // What the reader has read decides what upcoming reminders carry.
+    unawaited(
+      ref.read(notificationPreferencesProvider.notifier).refreshPreviews(),
+    );
   }
 
   /// Marks today's hadith read because the reader arrived from a reminder.

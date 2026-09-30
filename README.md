@@ -1,9 +1,10 @@
 # Daily Hadith
 
-A quiet reading app: one hadith at a time, one gentle reminder, steady progress.
+A quiet reading app: one hadith at a time, gentle reminders, steady progress.
 
 You choose a collection, choose when you want to be reminded, and read through
-the book in order. Progress is saved per book, nothing is marked read unless you
+the book in order — or have a hadith chosen at random each time from books you
+pick. Progress is saved per book, nothing is marked read unless you
 read it, and the whole reading experience works offline. No account, no feed, no
 streaks.
 
@@ -12,6 +13,7 @@ streaks.
 ## Contents
 
 - [Reading model](#reading-model)
+- [Random mode](#random-mode)
 - [Hadith content and source integrity](#hadith-content-and-source-integrity)
 - [Getting started](#getting-started)
 - [Importing a verified dataset](#importing-a-verified-dataset)
@@ -58,28 +60,52 @@ Moving between hadith is browsing, not reading: the arrows, and a horizontal
 swipe on the reading surface, change position without marking anything.
 
 A "period" is the interval between reminders, so a weekly reader advances weekly
-and a daily reader advances daily. With reminders switched off it falls back to a
-daily boundary at the configured time, so the book still moves on each day.
+and a daily reader advances daily. A reader with several reminder times a day
+(up to six) gets a new period, and so a new hadith, at each one. With reminders
+switched off it falls back to a daily boundary at each configured time, so the
+book still moves on.
 
 The rule lives in
 [`lib/domain/services/reading_scheduler.dart`](lib/domain/services/reading_scheduler.dart)
 and is covered directly by
 [`test/domain/reading_scheduler_test.dart`](test/domain/reading_scheduler_test.dart).
 
+## Random mode
+
+**Settings → Daily hadith** (or the shuffle button on Today) switches from
+reading one book in order to a hadith chosen at random from books the reader
+ticks. The same period rule applies:
+
+- Each period gets **one** random hadith, which stays on screen until the next
+  period. *Show another* draws a different one for the period.
+- The draw is uniform over hadith, not over books, so a 40-hadith book is not
+  exhausted in a few weeks next to a 7,000-hadith one.
+- Hadith already read are skipped until everything in the chosen books is read;
+  then the pool starts over.
+- Reading at random marks the hadith read in its book, but never moves that
+  book's in-order position or its reading period. Choosing *Start/Continue
+  reading* on a book switches back to reading in order.
+
+Each period's pick is stored (`random_picks` table), so a reminder that
+previewed a hadith and the app opened from it always agree. The rules live in
+[`RandomPicker`](lib/domain/services/random_picker.dart) (pure) and
+[`RandomSelection`](lib/app/random_selection.dart).
+
 ## Hadith content and source integrity
 
-**No hadith text in this repository is real hadith text.**
-
-The app ships one collection, `dev_sample` ("Development Sample"), whose every
-field is placeholder prose written to exercise layout, typography and
-right-to-left rendering. It is labelled a development fixture in the catalog,
-tagged as such on every screen that shows it, and the app refuses to present it
-as anything else.
+The repository ships fifteen collections imported verbatim from the
+[`hadith-json`](https://github.com/AhmedBaset/hadith-json) dataset (see
+[DATA_SOURCES.md](DATA_SOURCES.md) — that dataset has no licence), plus one
+development fixture, `dev_sample`, whose every field is placeholder prose
+written to exercise layout, typography and right-to-left rendering. The fixture
+is labelled as such in the catalog and on every screen that shows it, and is
+hidden once any real collection is readable.
 
 Nothing in this project generates, paraphrases, completes or corrects hadith
-text. Hadith content must come from a dataset you choose and can vouch for. The
-catalog lists several well-known collections with their bibliographic metadata;
-each shows a **Dataset not installed** state until you import its text.
+text. Hadith content must come from a dataset you choose and can vouch for. A
+catalog entry without imported text shows a **Dataset not installed** state.
+The one place text is shortened is a reminder preview, which shows the opening
+of the hadith with an ellipsis and opens the full text when tapped.
 
 Every collection carries a source record — name, URL, translator, licence and
 retrieval date — which is shown on the collection screen and gathered under
@@ -105,7 +131,7 @@ the app is fully usable before any dataset is imported.
 ## Importing a verified dataset
 
 The quickest route is the open [`hadith-json`](https://github.com/AhmedBaset/hadith-json)
-dataset (Arabic + English, scraped from Sunnah.com), which covers seven of the
+dataset (Arabic + English, scraped from Sunnah.com), which covers fifteen of the
 collections in this app's catalog:
 
 ```bash
@@ -238,10 +264,19 @@ Some deliberate choices:
 - **Times are wall-clock.** 8:00 AM is resolved against the device's *current*
   timezone every time reminders are armed, so travel and daylight-saving
   changes are handled without the reader doing anything.
-- **Daily, weekly and selected-day cadences are armed as OS-level repeating
-  notifications**, so they survive a device restart and an app update without
-  the app running. Every-other-day has no repeating equivalent, so a rolling
-  window of occurrences is armed and topped up on each launch.
+- **Several times a day.** Every cadence can carry up to six times; each is a
+  reminder, and each starts a new reading period.
+- **Plain invitations are armed as OS-level repeating notifications** for
+  daily, weekly and selected-day cadences, one per time, so they survive a
+  device restart and an app update without the app running. Every-other-day
+  has no repeating equivalent, so a rolling window of occurrences is armed and
+  topped up on each launch.
+- **Reminders that show their hadith are concrete occurrences.** A repeating
+  notification repeats its text, so these are planned by
+  [`ReminderPlanner`](lib/app/reminder_planner.dart) as a rolling window of the
+  next 60 reminders (under iOS's cap of 64 pending), re-planned on every launch
+  and whenever a hadith is marked read or unread. A reader who does not open
+  the app for the whole window stops getting reminders until they next do.
 - **Reminders are re-armed on every launch** (`bootstrapProvider`), which also
   covers timezone changes and frequency edits.
 - **Changing any setting cancels everything and re-arms**, so a stale reminder
@@ -250,9 +285,15 @@ Some deliberate choices:
   is chosen at the moment reminders are armed, from what the platform reports it
   currently permits, and the exact path falls back rather than throwing if the
   permission is withdrawn in between.
-- **The notification never contains the hadith** — only an invitation to open
-  the app. Tapping it deep-links to the reader's current position in that
-  collection.
+- **What a reminder carries is the reader's choice.** By default it shows the
+  opening of the hadith it is for (translation, or Arabic for Arabic-only
+  readers), expanding to more of it on Android. In order, reminder *k* carries
+  the *k*-th unread hadith after the one on screen; at random, the pick for the
+  period it starts. **Notifications → Show the hadith in the reminder** turns
+  this off, leaving a plain invitation to open the app.
+- **Tapping a reminder opens exactly the hadith it showed** and marks it read;
+  an invitation opens the reader's current position. Hadith skipped over stay
+  unread either way.
 
 Android needs core library desugaring for the notification plugin; it is already
 configured in `android/app/build.gradle.kts`, along with ProGuard rules that
@@ -271,7 +312,9 @@ flutter analyze     # lib, test and tool must be clean
 flutter test
 ```
 
-121 tests cover the reminder cadences and period boundaries, the reading rule
+156 tests cover the reminder cadences (including several times a day) and
+period boundaries, the reading rule, random mode's draw and its guard rails,
+reminder previews and the hadith they carry, copying, the reading rule
 (including missed days and skipping ahead), the SQLite progress layer, JSON
 parsing and error states, the repository install path, the reading surface in
 each language mode, reading aloud in both Arabic and English, auto-marking and
@@ -323,7 +366,9 @@ the app is in the foreground and lets taps reach Dart.
 ## Privacy
 
 No account, no analytics, no advertising SDK, no location or contacts access.
-Reading progress and preferences stay in local storage on the device. Every
+Reading progress and preferences stay in local storage on the device. Reminders
+that show their hadith can be read on the lock screen; turning previews off
+keeps them to a plain invitation. Every
 permission the app asks for serves reminders — notifications, exact alarms, and
 an exemption from battery optimisation — and none is requested until the reader
 has chosen a reminder time. Declining any of them costs punctuality, nothing

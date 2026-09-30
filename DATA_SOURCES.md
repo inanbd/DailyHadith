@@ -17,7 +17,7 @@ If it has no grading, no grading is shown. Gaps in a source stay gaps.
 | Collection | Status |
 |---|---|
 | `dev_sample` — "Development Sample" | **Development fixture. Not hadith.** Placeholder prose written for this repository to exercise layout, typography and RTL rendering. |
-| `riyad_as_salihin`, `nawawi40`, `adab_al_mufrad`, `shamail_muhammadiyyah`, `bulugh_al_maram`, `bukhari`, `muslim` | Bibliographic metadata only. No text. Each shows a "Dataset not installed" state until imported. |
+| `riyad_as_salihin`, `nawawi40`, `adab_al_mufrad`, `shamail_muhammadiyyah`, `bulugh_al_maram`, `bukhari`, `muslim`, `abu_dawud`, `tirmidhi`, `nasai`, `ibn_majah`, `malik`, `darimi`, `qudsi40`, `shahwaliullah40` | Imported from `hadith-json` (see the recipe below). A catalog entry without a collection file shows a "Dataset not installed" state. |
 
 The fixture is marked `"verification": "development_fixture"` in the catalog.
 The app surfaces that on the Today screen, on the collection screen, on the
@@ -25,9 +25,11 @@ library card and under **Settings → Hadith sources**. `flutter test
 test/data/bundled_assets_test.dart` fails if that labelling is ever lost, or if a
 collection ships text without real attribution.
 
-No third-party hadith dataset is vendored here. That is deliberate: choosing a
-dataset means accepting its accuracy and its licence, and that is a decision for
-whoever ships the app, not a default baked into it.
+The imported collections are committed so the app builds with real content. The
+dataset they come from publishes no licence — read
+[the note below](#recipe-the-hadith-json-dataset) before releasing a build that
+contains them. Choosing a dataset means accepting its accuracy and its licence,
+and that is a decision for whoever ships the app.
 
 ## Choosing a dataset
 
@@ -135,8 +137,9 @@ Notes:
 
 [`AhmedBaset/hadith-json`](https://github.com/AhmedBaset/hadith-json) is the
 best-known open dataset for this purpose: 50,884 hadith across 17 books, Arabic
-and English, scraped from [Sunnah.com](https://sunnah.com/). Seven of its books
-match collections in this app's catalog.
+and English, scraped from [Sunnah.com](https://sunnah.com/). Fifteen of its
+books match collections in this app's catalog. The other two, Musnad Ahmad and
+Mishkat al-Masabih, are left out: they are the largest and least translated.
 
 **Read this before shipping it.** The dataset publishes **no LICENSE file**,
 which means it grants no explicit permission to redistribute. Importing it to
@@ -163,6 +166,14 @@ That clones the dataset at its pinned tag into `.dart_tool/hadith-json`
 | `bulugh_al_maram` | 1,767 | `other_books/bulugh_almaram.json` |
 | `bukhari` | 7,277 | `the_9_books/bukhari.json` |
 | `muslim` | 7,459 | `the_9_books/muslim.json` |
+| `abu_dawud` | 5,276 | `the_9_books/abudawud.json` |
+| `tirmidhi` | 4,053 | `the_9_books/tirmidhi.json` |
+| `nasai` | 5,768 | `the_9_books/nasai.json` |
+| `ibn_majah` | 4,345 | `the_9_books/ibnmajah.json` |
+| `malik` | 1,985 | `the_9_books/malik.json` |
+| `darimi` | 3,406 | `the_9_books/darimi.json` (Arabic only — no translation in the dataset) |
+| `qudsi40` | 40 | `forties/qudsi40.json` |
+| `shahwaliullah40` | 40 | `forties/shahwaliullah40.json` |
 
 Then:
 

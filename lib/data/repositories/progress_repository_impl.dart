@@ -24,8 +24,16 @@ class ProgressRepositoryImpl implements ProgressRepository {
     int ordinal,
     int totalHadith, {
     DateTime? at,
+    bool movePosition = true,
   }) =>
-      _dao.markRead(collectionId, hadithId, ordinal, totalHadith, at: at);
+      _dao.markRead(
+        collectionId,
+        hadithId,
+        ordinal,
+        totalHadith,
+        at: at,
+        movePosition: movePosition,
+      );
 
   @override
   Future<ReadingProgress> markUnread(

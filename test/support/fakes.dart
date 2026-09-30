@@ -60,6 +60,27 @@ class FakeContentSource implements HadithContentSource {
     );
   }
 
+  /// Several books, each built like [FakeContentSource.single].
+  factory FakeContentSource.books(Map<String, int> countsById) {
+    final List<FakeContentSource> books = <FakeContentSource>[
+      for (final MapEntry<String, int> entry in countsById.entries)
+        FakeContentSource.single(
+          id: entry.key,
+          title: 'Book ${entry.key}',
+          count: entry.value,
+          englishText: (int i) => 'English text ${entry.key} $i.',
+        ),
+    ];
+    return FakeContentSource(
+      collections: <HadithCollection>[
+        for (final FakeContentSource book in books) ...book.collections,
+      ],
+      hadithByCollection: <String, List<Hadith>>{
+        for (final FakeContentSource book in books) ...book.hadithByCollection,
+      },
+    );
+  }
+
   final List<HadithCollection> collections;
   final Map<String, List<Hadith>> hadithByCollection;
   final Map<String, List<HadithChapter>> chaptersByCollection;
@@ -126,6 +147,10 @@ class FakeNotificationScheduler implements NotificationScheduler {
   final List<NotificationPreferences> scheduledPreferences =
       <NotificationPreferences>[];
   final List<String?> scheduledCollectionIds = <String?>[];
+
+  /// The reminders carrying a hadith armed by each reschedule, in step with
+  /// [scheduledPreferences]. Empty for a reschedule of plain invitations.
+  final List<List<PlannedReminder>> scheduledPlans = <List<PlannedReminder>>[];
   final List<ReminderRequirement> requested = <ReminderRequirement>[];
   int cancelAllCalls = 0;
   int settingsOpened = 0;
@@ -171,9 +196,11 @@ class FakeNotificationScheduler implements NotificationScheduler {
     required NotificationPreferences preferences,
     required String? collectionId,
     required String? collectionTitle,
+    List<PlannedReminder> planned = const <PlannedReminder>[],
   }) async {
     scheduledPreferences.add(preferences);
     scheduledCollectionIds.add(collectionId);
+    scheduledPlans.add(planned);
   }
 
   @override

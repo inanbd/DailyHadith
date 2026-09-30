@@ -155,14 +155,13 @@ class _Details extends ConsumerWidget {
     return 'Start reading';
   }
 
-  /// Makes this the current book and opens Today on it.
+  /// Makes this the current book and opens Today on it, reading in order —
+  /// choosing a book to read means reading that book, even from random mode.
   ///
   /// The previous book's progress is untouched — switching back later resumes
   /// exactly where it left off.
   Future<void> _startReading(BuildContext context, WidgetRef ref) async {
-    await ref
-        .read(userPreferencesProvider.notifier)
-        .setCurrentCollection(collection.id);
+    await ref.read(userPreferencesProvider.notifier).readInOrder(collection.id);
     // Reminders name the current book, so they are re-armed with the new title.
     await ref.read(notificationPreferencesProvider.notifier).applyToScheduler();
     await ref.read(todayControllerProvider.notifier).refresh();

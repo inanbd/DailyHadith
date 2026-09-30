@@ -41,6 +41,24 @@ abstract final class SettingsLabels {
     }
   }
 
+  static String readingOrder(ReadingOrder order) {
+    switch (order) {
+      case ReadingOrder.sequential:
+        return 'In order';
+      case ReadingOrder.random:
+        return 'Random';
+    }
+  }
+
+  /// "Random · 3 books", or "In order".
+  static String readingMode(ReadingOrder order, int poolSize) {
+    final String name = readingOrder(order);
+    if (order == ReadingOrder.sequential) return name;
+    return '$name · ${books(poolSize)}';
+  }
+
+  static String books(int count) => count == 1 ? '1 book' : '$count books';
+
   static String frequencyName(NotificationFrequency frequency) {
     switch (frequency) {
       case NotificationFrequency.daily:

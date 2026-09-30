@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:daily_hadith/app/app.dart';
 import 'package:daily_hadith/app/providers.dart';
 import 'package:daily_hadith/data/local/app_database.dart';
@@ -86,6 +88,8 @@ class TestHarness {
         notificationSchedulerProvider.overrideWithValue(fakeScheduler),
         speechSynthesizerProvider.overrideWithValue(fakeSpeech),
         clockProvider.overrideWithValue(() => clock.now),
+        // Seeded, so random mode draws the same hadith on every run.
+        randomProvider.overrideWithValue(Random(7)),
       ],
     );
   }
@@ -142,8 +146,11 @@ class TestHarness {
         () => Future<void>.delayed(const Duration(milliseconds: 4)),
       );
       await tester.pump(const Duration(milliseconds: 40));
+      // Onboarding's last step works behind its own button — saving, arming
+      // reminders, installing the chosen book — rather than a loading view.
       final bool busy = tester.any(find.byType(LoadingView)) ||
-          tester.any(find.byType(SplashScreen));
+          tester.any(find.byType(SplashScreen)) ||
+          tester.any(find.text('Setting up…'));
       if (i >= minimumRounds && !busy) return;
     }
   }

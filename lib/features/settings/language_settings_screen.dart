@@ -35,9 +35,16 @@ class LanguageSettingsScreen extends ConsumerWidget {
                   description: _description(mode),
                   value: mode,
                   groupValue: preferences.languageMode,
-                  onChanged: (LanguageMode value) => ref
-                      .read(userPreferencesProvider.notifier)
-                      .update(preferences.copyWith(languageMode: value)),
+                  onChanged: (LanguageMode value) async {
+                    await ref
+                        .read(userPreferencesProvider.notifier)
+                        .update(preferences.copyWith(languageMode: value));
+                    // Reminders that carry their hadith carry it in the
+                    // language the reader reads.
+                    await ref
+                        .read(notificationPreferencesProvider.notifier)
+                        .refreshPreviews();
+                  },
                 ),
             ],
           ),

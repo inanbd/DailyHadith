@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../app/collection_providers.dart';
 import '../../app/providers.dart';
+import '../../app/routes.dart';
 import '../../core/utils/formatting.dart';
 import '../../domain/entities/enums.dart';
 import '../../domain/entities/notification_preferences.dart';
+import '../../domain/entities/user_preferences.dart';
 import '../../domain/repositories/notification_scheduler.dart';
 import '../../domain/services/reminder_schedule.dart';
 import '../../shared/theme/app_colors.dart';
@@ -13,6 +17,7 @@ import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_page.dart';
 import '../../shared/widgets/notice_banner.dart';
 import '../../shared/widgets/settings_group.dart';
+import '../today/today_controller.dart';
 import 'reminder_permission_flow.dart';
 import 'settings_labels.dart';
 
@@ -106,19 +111,28 @@ class NotificationSettingsScreen extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: AppSpacing.xl),
-            SettingsGroup(
-              title: 'Time',
-              children: <Widget>[
-                SettingsRow(
-                  label: 'Reminder time',
-                  value: Formatting.timeOfDay(
-                    preferences.time.hour,
-                    preferences.time.minute,
-                    use24Hour: use24Hour,
-                  ),
-                  onTap: () => _pickTime(context, ref, preferences),
+            _TimesGroup(
+              preferences: preferences,
+              use24Hour: use24Hour,
+              onEdit: (int index) => _pickTime(context, ref, preferences, index),
+              onAdd: () => _pickTime(context, ref, preferences, null),
+              onRemove: (int index) => _update(
+                ref,
+                preferences.copyWith(
+                  times: <TimeOfDayValue>[
+                    for (int i = 0; i < preferences.times.length; i++)
+                      if (i != index) preferences.times[i],
+                  ],
                 ),
-              ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            _ReminderHadithGroup(
+              preferences: preferences,
+              onPreviewChanged: (bool value) => _update(
+                ref,
+                preferences.copyWith(showHadithPreview: value),
+              ),
             ),
             if (readinessAsync.hasValue && !readiness.isBlocked) ...<Widget>[
               const SizedBox(height: AppSpacing.xl),
@@ -158,24 +172,34 @@ class NotificationSettingsScreen extends ConsumerWidget {
     await ref.read(notificationPreferencesProvider.notifier).update(next);
   }
 
+  /// Edits the time at [index], or adds a new one when [index] is null.
   static Future<void> _pickTime(
     BuildContext context,
     WidgetRef ref,
     NotificationPreferences preferences,
+    int? index,
   ) async {
+    // A new time starts a few hours after the last one, which is usually
+    // closer to what the reader wants than a second 8:00 AM.
+    final TimeOfDayValue initial = index != null
+        ? preferences.times[index]
+        : TimeOfDayValue((preferences.times.last.hour + 4) % 24,
+            preferences.times.last.minute);
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay(
-        hour: preferences.time.hour,
-        minute: preferences.time.minute,
-      ),
-      helpText: 'Reminder time',
+      initialTime: TimeOfDay(hour: initial.hour, minute: initial.minute),
+      helpText: index == null ? 'Add a reminder time' : 'Reminder time',
     );
     if (picked == null) return;
+    final TimeOfDayValue chosen = TimeOfDayValue(picked.hour, picked.minute);
     await _update(
       ref,
       preferences.copyWith(
-        time: TimeOfDayValue(picked.hour, picked.minute),
+        times: <TimeOfDayValue>[
+          for (int i = 0; i < preferences.times.length; i++)
+            if (i != index) preferences.times[i],
+          chosen,
+        ],
       ),
     );
   }
@@ -303,6 +327,173 @@ class _RequirementRowState extends ConsumerState<_RequirementRow> {
     } finally {
       if (mounted) setState(() => _asking = false);
     }
+  }
+}
+
+/// Which hadith a reminder brings — the next in the current book, or one at
+/// random from the reader's chosen books — and whether the reminder shows it.
+///
+/// The choice is the same one as Settings → Daily hadith: a reminder and the
+/// app it opens always agree on the hadith.
+class _ReminderHadithGroup extends ConsumerWidget {
+  const _ReminderHadithGroup({
+    required this.preferences,
+    required this.onPreviewChanged,
+  });
+
+  final NotificationPreferences preferences;
+  final ValueChanged<bool> onPreviewChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final UserPreferences user = ref.watch(userPreferencesProvider);
+    final String book =
+        ref.watch(currentCollectionProvider).value?.titleEnglish ??
+            'your current book';
+    final int poolSize = user.randomPool.length;
+
+    Future<void> choose(ReadingOrder order) async {
+      await ref.read(userPreferencesProvider.notifier).setReadingOrder(order);
+      await ref.read(todayControllerProvider.notifier).refresh();
+    }
+
+    return SettingsGroup(
+      title: 'Reminder hadith',
+      children: <Widget>[
+        ChoiceRow<ReadingOrder>(
+          label: 'In order',
+          description: 'The next hadith in $book.',
+          value: ReadingOrder.sequential,
+          groupValue: user.readingOrder,
+          onChanged: choose,
+        ),
+        ChoiceRow<ReadingOrder>(
+          label: 'Random',
+          description:
+              'A random hadith from ${SettingsLabels.books(poolSize)} you choose.',
+          value: ReadingOrder.random,
+          groupValue: user.readingOrder,
+          onChanged: choose,
+        ),
+        if (user.isRandom)
+          SettingsRow(
+            label: 'Books to draw from',
+            value: SettingsLabels.books(poolSize),
+            onTap: () => context.go(Routes.settingsReading),
+          ),
+        SettingsRow(
+          label: 'Show the hadith in the reminder',
+          description: preferences.showHadithPreview
+              ? 'The reminder shows the start of the hadith. Tap it to read '
+                  'the rest.'
+              : 'The reminder only says your next hadith is ready.',
+          trailing: Switch(
+            value: preferences.showHadithPreview,
+            onChanged: onPreviewChanged,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One row per reminder time, each editable, plus a way to add another.
+///
+/// Every time starts a new reading period, which is what the description
+/// under the group tells the reader: more times means more hadith, not the
+/// same one repeated.
+class _TimesGroup extends StatelessWidget {
+  const _TimesGroup({
+    required this.preferences,
+    required this.use24Hour,
+    required this.onEdit,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final NotificationPreferences preferences;
+  final bool use24Hour;
+  final ValueChanged<int> onEdit;
+  final VoidCallback onAdd;
+  final ValueChanged<int> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors colors = context.colors;
+    final List<TimeOfDayValue> times = preferences.times;
+    final bool canRemove = times.length > 1;
+    final bool canAdd = times.length < NotificationPreferences.maxTimesPerDay;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SettingsGroup(
+          title: times.length == 1 ? 'Time' : 'Times',
+          children: <Widget>[
+            for (int i = 0; i < times.length; i++)
+              _TimeRow(
+                label: times.length == 1 ? 'Reminder time' : 'Reminder ${i + 1}',
+                value: Formatting.timeOfDay(
+                  times[i].hour,
+                  times[i].minute,
+                  use24Hour: use24Hour,
+                ),
+                onTap: () => onEdit(i),
+                onRemove: canRemove ? () => onRemove(i) : null,
+              ),
+            if (canAdd)
+              SettingsRow(
+                label: 'Add another time',
+                onTap: onAdd,
+                trailing: Icon(Icons.add, size: 20, color: colors.accent),
+              ),
+          ],
+        ),
+        if (times.length > 1) ...<Widget>[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Each reminder brings a new hadith.',
+            style: AppTypography.reference.copyWith(
+              color: colors.textSecondary,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _TimeRow extends StatelessWidget {
+  const _TimeRow({
+    required this.label,
+    required this.value,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors colors = context.colors;
+    return Row(
+      children: <Widget>[
+        Expanded(child: SettingsRow(label: label, value: value, onTap: onTap)),
+        if (onRemove != null)
+          IconButton(
+            onPressed: onRemove,
+            icon: Icon(Icons.close, size: 20, color: colors.textSecondary),
+            tooltip: 'Remove $value',
+            constraints: const BoxConstraints(
+              minWidth: AppSpacing.minTapTarget,
+              minHeight: AppSpacing.minTapTarget,
+            ),
+          ),
+      ],
+    );
   }
 }
 

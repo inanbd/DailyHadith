@@ -3,6 +3,7 @@ import 'package:daily_hadith/domain/entities/hadith.dart';
 import 'package:daily_hadith/shared/theme/app_theme.dart';
 import 'package:daily_hadith/shared/widgets/hadith_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -152,5 +153,68 @@ void main() {
 
     expect(largeArabic, closeTo(baseArabic * 1.3, 0.01));
     expect(largeEnglish, closeTo(baseEnglish * 1.3, 0.01));
+  });
+
+  group('copying', () {
+    late List<String> copied;
+
+    setUp(() {
+      copied = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform,
+              (MethodCall call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied.add((call.arguments as Map<Object?, Object?>)['text']! as String);
+        }
+        return null;
+      });
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    testWidgets('the Arabic and the translation each copy on their own',
+        (WidgetTester tester) async {
+      await pumpView(tester, full, LanguageMode.both);
+
+      await tester.tap(find.byTooltip('Copy the Arabic'));
+      await tester.pump();
+      expect(copied.last, 'النص العربي\n\n— Test Collection 1');
+      expect(find.text('Arabic copied'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Copy the translation'));
+      await tester.pump();
+      expect(
+        copied.last,
+        'Narrated by someone\nThe English translation.\n\n— Test Collection 1',
+      );
+      expect(find.text('Translation copied'), findsOneWidget);
+    });
+
+    testWidgets('only the passages on screen offer a copy button',
+        (WidgetTester tester) async {
+      await pumpView(tester, full, LanguageMode.english);
+      expect(find.byTooltip('Copy the Arabic'), findsNothing);
+      expect(find.byTooltip('Copy the translation'), findsOneWidget);
+
+      await pumpView(tester, full, LanguageMode.arabic);
+      expect(find.byTooltip('Copy the Arabic'), findsOneWidget);
+      expect(find.byTooltip('Copy the translation'), findsNothing);
+    });
+
+    test('a hadith with no citation copies as the bare text', () {
+      const Hadith bare = Hadith(
+        id: 'c:2',
+        collectionId: 'c',
+        ordinal: 2,
+        hadithNumber: '2',
+        arabicText: ' نص ',
+        englishText: 'Text.',
+      );
+      expect(HadithView.arabicForClipboard(bare), 'نص');
+      expect(HadithView.englishForClipboard(bare), 'Text.');
+    });
   });
 }

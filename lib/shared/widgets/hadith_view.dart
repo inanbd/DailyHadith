@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../domain/entities/enums.dart';
 import '../../domain/entities/hadith.dart';
@@ -14,7 +15,9 @@ import '../theme/app_typography.dart';
 ///
 /// The listen and favourite controls are passed in rather than read from a
 /// provider, so this stays presentational and any screen can mount it without
-/// wiring up state.
+/// wiring up state. Copying needs no state at all, so it is built in: each
+/// passage has its own copy button, and what lands on the clipboard is the
+/// text exactly as shown plus its citation.
 class HadithView extends StatelessWidget {
   const HadithView({
     required this.hadith,
@@ -27,6 +30,7 @@ class HadithView extends StatelessWidget {
     this.isSpeakingEnglish = false,
     this.onToggleFavourite,
     this.isFavourite = false,
+    this.showCopy = true,
     super.key,
   });
 
@@ -59,6 +63,29 @@ class HadithView extends StatelessWidget {
 
   final bool isFavourite;
 
+  /// Whether each passage offers a copy button.
+  final bool showCopy;
+
+  /// The Arabic as it goes to the clipboard: the text, then its citation.
+  static String arabicForClipboard(Hadith hadith) =>
+      _withReference(hadith.arabicText!.trim(), hadith);
+
+  /// The translation as it goes to the clipboard: the narrator line that
+  /// introduces it, the text, then its citation.
+  static String englishForClipboard(Hadith hadith) => _withReference(
+        <String>[
+          if (hadith.narrator != null) hadith.narrator!.trim(),
+          hadith.englishText!.trim(),
+        ].join('\n'),
+        hadith,
+      );
+
+  static String _withReference(String text, Hadith hadith) {
+    final String? reference = hadith.reference;
+    if (reference == null || reference.trim().isEmpty) return text;
+    return '$text\n\n— ${reference.trim()}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppColors colors = context.colors;
@@ -73,7 +100,17 @@ class HadithView extends StatelessWidget {
 
     // Speaking is only ever offered for text that is actually on screen.
     final VoidCallback? speak = showEnglish ? onSpeakEnglish : null;
-    final bool hasActions = speak != null || onToggleFavourite != null;
+    final VoidCallback? copyEnglish = showEnglish && showCopy
+        ? () => _copy(
+              context,
+              englishForClipboard(hadith),
+              'Translation copied',
+            )
+        : null;
+    final bool hasActions =
+        speak != null || copyEnglish != null || onToggleFavourite != null;
+    final bool hasArabicActions =
+        showArabic && (onSpeakArabic != null || showCopy);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -81,19 +118,34 @@ class HadithView extends StatelessWidget {
         if (showArabic) _ArabicText(text: hadith.arabicText!, scale: textScale),
         // Sits under the Arabic, on the side the Arabic starts from, so it
         // belongs to that passage rather than to the translation below.
-        if (showArabic && onSpeakArabic != null)
-          Align(
-            alignment: Alignment.centerRight,
-            child: _ActionButton(
-              icon: isSpeakingArabic
-                  ? Icons.stop_rounded
-                  : Icons.volume_up_outlined,
-              tooltip: isSpeakingArabic
-                  ? 'Stop reading aloud'
-                  : 'Listen to the Arabic',
-              color: isSpeakingArabic ? colors.accent : colors.textSecondary,
-              onPressed: onSpeakArabic,
-            ),
+        if (hasArabicActions)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: <Widget>[
+              if (showCopy)
+                _ActionButton(
+                  icon: Icons.copy_rounded,
+                  tooltip: 'Copy the Arabic',
+                  color: colors.textSecondary,
+                  onPressed: () => _copy(
+                    context,
+                    arabicForClipboard(hadith),
+                    'Arabic copied',
+                  ),
+                ),
+              if (onSpeakArabic != null)
+                _ActionButton(
+                  icon: isSpeakingArabic
+                      ? Icons.stop_rounded
+                      : Icons.volume_up_outlined,
+                  tooltip: isSpeakingArabic
+                      ? 'Stop reading aloud'
+                      : 'Listen to the Arabic',
+                  color:
+                      isSpeakingArabic ? colors.accent : colors.textSecondary,
+                  onPressed: onSpeakArabic,
+                ),
+            ],
           ),
         if (showArabic && showEnglish)
           const Padding(
@@ -128,6 +180,7 @@ class HadithView extends StatelessWidget {
           _HadithActions(
             onSpeak: speak,
             isSpeaking: isSpeakingEnglish,
+            onCopy: copyEnglish,
             onToggleFavourite: onToggleFavourite,
             isFavourite: isFavourite,
           ),
@@ -139,9 +192,28 @@ class HadithView extends StatelessWidget {
       ],
     );
   }
+
+  static Future<void> _copy(
+    BuildContext context,
+    String text,
+    String confirmation,
+  ) async {
+    final ScaffoldMessengerState? messenger =
+        ScaffoldMessenger.maybeOf(context);
+    await Clipboard.setData(ClipboardData(text: text));
+    messenger
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(confirmation),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
 }
 
-/// Listen and favourite, sitting directly beneath the passage they act on.
+/// Listen, copy and favourite, sitting directly beneath the passage they act
+/// on.
 ///
 /// Left-aligned with the text rather than pushed to the far edge, so the pair
 /// reads as belonging to the hadith above them.
@@ -149,12 +221,14 @@ class _HadithActions extends StatelessWidget {
   const _HadithActions({
     required this.onSpeak,
     required this.isSpeaking,
+    required this.onCopy,
     required this.onToggleFavourite,
     required this.isFavourite,
   });
 
   final VoidCallback? onSpeak;
   final bool isSpeaking;
+  final VoidCallback? onCopy;
   final VoidCallback? onToggleFavourite;
   final bool isFavourite;
 
@@ -175,6 +249,13 @@ class _HadithActions extends StatelessWidget {
                 : 'Listen to the translation',
             color: isSpeaking ? colors.accent : colors.textSecondary,
             onPressed: onSpeak,
+          ),
+        if (onCopy != null)
+          _ActionButton(
+            icon: Icons.copy_rounded,
+            tooltip: 'Copy the translation',
+            color: colors.textSecondary,
+            onPressed: onCopy,
           ),
         if (onToggleFavourite != null)
           _ActionButton(
